@@ -64,7 +64,8 @@ defmodule TheoryCraftTA.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps() do
     [
-      {:theory_craft, path: "../theorycraft"},
+      {:theory_craft, github: "imnotavirus/theory_craft"},
+      # {:theory_craft, path: "../theorycraft"},
       {:rustler_precompiled, "~> 0.8"},
 
       ## Optional
