@@ -14,6 +14,7 @@ mod talib_ffi {
     // FFI declarations for ta-lib C functions
     #[repr(C)]
     #[derive(Debug, PartialEq)]
+    #[allow(dead_code)]
     pub enum TARetCode {
         Success = 0,
         LibNotInitialize = 1,
@@ -55,7 +56,7 @@ mod talib_ffi {
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_sma(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term> {
-    use talib_ffi::{TARetCode, TA_SMA, TA_SMA_Lookback};
+    use talib_ffi::{TARetCode, TA_SMA_Lookback, TA_SMA};
 
     // Validate period
     if period < 2 {
@@ -97,10 +98,7 @@ pub fn overlap_sma(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term> {
 
     // Check return code
     if ret_code != TARetCode::Success as i32 {
-        let err = (
-            atoms::error(),
-            format!("TA-Lib error code: {}", ret_code),
-        );
+        let err = (atoms::error(), format!("TA-Lib error code: {}", ret_code));
         return Ok(err.encode(env));
     }
 

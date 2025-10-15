@@ -17,23 +17,18 @@ fn main() {
 
     let ta_lib_install = project_root.join("ta-lib-install");
 
-    eprintln!("=== Checking for ta-lib at: {} ===", ta_lib_install.display());
+    eprintln!(
+        "=== Checking for ta-lib at: {} ===",
+        ta_lib_install.display()
+    );
     eprintln!("=== Exists: {} ===", ta_lib_install.exists());
 
     // Check if ta-lib is already built
     if !ta_lib_install.exists() {
         eprintln!("=== TA-Lib NOT FOUND - ATTEMPTING TO BUILD ===");
 
-        // Try to build ta-lib automatically
-        if let Err(e) = build_ta_lib(project_root) {
-            eprintln!("=== FAILED TO BUILD TA-LIB: {} ===", e);
-            println!("cargo:warning=Failed to build ta-lib automatically: {}", e);
-            println!("cargo:warning=To build ta-lib manually:");
-            println!("cargo:warning=  - Windows: tools\\build_talib.cmd");
-            println!("cargo:warning=  - Linux/Mac: tools/build_talib.sh");
-            println!("cargo:warning=Continuing compilation without ta-lib (NIF will fail at runtime if used)");
-            return; // Exit early without linking
-        }
+        // Build ta-lib automatically - panic if it fails
+        build_ta_lib(project_root).expect("Failed to build ta-lib");
 
         eprintln!("=== TA-LIB BUILD SUCCESSFUL ===");
     }
@@ -68,10 +63,16 @@ fn build_ta_lib(project_root: &std::path::Path) -> Result<(), String> {
     };
 
     if !build_script.exists() {
-        return Err(format!("Build script not found: {}", build_script.display()));
+        return Err(format!(
+            "Build script not found: {}",
+            build_script.display()
+        ));
     }
 
-    println!("cargo:warning=Running ta-lib build script: {}", build_script.display());
+    eprintln!(
+        "=== Running ta-lib build script: {} ===",
+        build_script.display()
+    );
 
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")

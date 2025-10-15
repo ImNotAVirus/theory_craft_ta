@@ -1,4 +1,0 @@
-[workspace]
-resolver = "2"
-
-members = ["native/theory_craft_ta"]
