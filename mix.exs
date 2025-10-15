@@ -12,6 +12,7 @@ defmodule TheoryCraftTA.MixProject do
       elixir: "~> 1.14",
       deps: deps(),
       aliases: aliases(),
+      package: package(),
       elixirc_paths: elixirc_paths(Mix.env()),
       elixirc_options: [warnings_as_errors: true]
     ]
@@ -28,12 +29,37 @@ defmodule TheoryCraftTA.MixProject do
   def aliases() do
     [
       tidewave:
-        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4002) end)'"
+        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4002) end)'",
+      "rust.build": ["cmd cargo build --manifest-path=native/theory_craft_ta/Cargo.toml"],
+      "rust.clean": ["cmd cargo clean --manifest-path=native/theory_craft_ta/Cargo.toml"],
+      "rust.test": ["cmd cargo test --manifest-path=native/theory_craft_ta/Cargo.toml"],
+      "rust.fmt": ["cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml"],
+      "rust.clippy": ["cmd cargo clippy --manifest-path=native/theory_craft_ta/Cargo.toml"],
+      ci: ["format", "rust.fmt", "rust.lint", "test"]
     ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp package() do
+    [
+      files: [
+        "lib",
+        "native",
+        "checksum-*.exs",
+        "mix.exs",
+        "CHANGELOG.md",
+        "README.md",
+        "LICENSE"
+      ],
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => "https://github.com/ImNotAVirus/theory_craft_ta"
+      },
+      maintainers: ["DarkyZ aka NotAVirus"]
+    ]
+  end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps() do

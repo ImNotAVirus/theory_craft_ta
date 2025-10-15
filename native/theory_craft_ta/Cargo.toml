@@ -3,9 +3,18 @@ name = "theory_craft_ta"
 version = "0.1.0"
 authors = []
 edition = "2021"
+build = "build.rs"
 
 [lib]
+name = "theory_craft_ta"
+path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-rustler = "0.37.0"
+rustler = "0.37"
+
+[features]
+default = ["nif_version_2_15"]
+
+# Feature necessary for Rustler Precompiled
+nif_version_2_15 = ["rustler/nif_version_2_15"]

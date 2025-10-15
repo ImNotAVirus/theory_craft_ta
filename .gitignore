@@ -27,3 +27,13 @@ theory_craft_ta-*.tar
 
 # Rust binary artifacts
 /target/
+
+# Shared objects build by Rust.
+*.so
+*.dll
+
+# TA-Lib build artifacts
+/ta-lib-install/
+/ta-lib-*/
+talib-*.zip
+talib-*.tar.gz

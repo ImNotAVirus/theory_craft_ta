@@ -51,20 +51,40 @@ mix format lib/theory_craft_ta.ex
 
 ### Benchmarking
 ```bash
-# Run benchmarks
-mix run benchmarks/my_benchmark.exs
+# Run SMA benchmark (compares Native vs Elixir backends)
+mix run benchmarks/sma_benchmark.exs
 
 # Create a benchmark file (example structure)
 # benchmarks/sma_benchmark.exs
 ```
 
-Benchmark files should follow this structure:
-```elixir
-Benchee.run(%{
-  "function_name" => fn ->
-    # code to benchmark
-  end
-})
+### Rust/Native Development
+```bash
+# Build Rust NIF
+mix rust.build
+
+# Clean Rust build artifacts
+mix rust.clean
+
+# Run Rust tests
+mix rust.test
+
+# Format Rust code
+mix rust.fmt
+
+# Run Rust linter
+mix rust.clippy
+
+# Build ta-lib from source (Windows)
+tools\build_talib.cmd
+
+# Build ta-lib from source (Linux/Mac)
+tools/build_talib.sh
+```
+
+**Windows Disk Space Issue**: If you encounter "Espace insuffisant sur le disque" errors during Rust compilation, set `TMPDIR` to a drive with more space:
+```bash
+set TMPDIR=D:\temp
 ```
 
 ## Architecture
@@ -89,11 +109,31 @@ Each TA indicator is implemented as a `Processor` that:
 
 ### Native Components (Rustler)
 
-The project is configured to support Rustler-based NIFs for performance-critical calculations:
-- Uses `rustler_precompiled` for distribution of precompiled binaries
-- Optional `rustler` dependency for development builds
-- Set `EXPLORER_BUILD=1` environment variable to force local Rust compilation
-- Native code will be located in `native/` directory (not yet implemented)
+TheoryCraftTA uses Rustler NIFs for performance-critical calculations with ta-lib:
+
+**Architecture**:
+- **Dual Backend System**: Both Native (Rust NIF) and Pure Elixir implementations
+- **Backend Selection**: Configured at compile-time via `config/*.exs`
+- **Rust NIF**: Wraps ta-lib C library for high performance
+- **Pure Elixir**: Fallback implementation, useful for testing and development
+
+**TA-Lib Integration**:
+- ta-lib is built from source (not a system dependency)
+- Build script downloads ta-lib 0.6.4 from GitHub
+- Uses CMake to configure and build static library
+- Conditional compilation: NIF compiles with or without ta-lib
+- If ta-lib is missing, Native backend returns error suggesting Elixir backend
+
+**Key Files**:
+- `native/theory_craft_ta/src/overlap.rs` - Rust NIF implementations
+- `native/theory_craft_ta/build.rs` - Build script for linking ta-lib
+- `lib/theory_craft_ta/native/overlap.ex` - Native backend Elixir API
+- `lib/theory_craft_ta/elixir/overlap.ex` - Pure Elixir backend
+- `lib/theory_craft_ta/helpers.ex` - Type conversion utilities
+
+**Environment Variables**:
+- `THEORY_CRAFT_TA_BUILD=1` - Force local Rust compilation
+- `TMPDIR` - Set temporary directory for Rust compiler (useful on Windows with low C: drive space)
 
 ## Dependencies
 
@@ -148,6 +188,47 @@ Follow the same coding guidelines as the parent TheoryCraft project. Key points:
 
 ### Mix Aliases
 - `mix tidewave`: Starts the Tidewave MCP server on port 4002
+- `mix rust.build`: Build Rust NIF
+- `mix rust.clean`: Clean Rust build artifacts
+- `mix rust.test`: Run Rust tests
+- `mix rust.fmt`: Format Rust code
+- `mix rust.clippy`: Run Rust linter
+
+### Backend Configuration
+
+TheoryCraftTA uses a compile-time backend selection system:
+
+**Configuration Files**:
+- `config/config.exs` - Base config, defaults to Native backend
+- `config/dev.exs` - Development config
+- `config/test.exs` - Test config (uses Elixir backend to avoid Rust compilation)
+- `config/prod.exs` - Production config
+
+**Example**:
+```elixir
+# config/test.exs
+import Config
+
+config :theory_craft_ta,
+  default_backend: TheoryCraftTA.Elixir
+```
+
+**Testing**:
+- Most tests use the configured backend (Elixir in test env)
+- Property-based tests comparing Native vs Elixir are tagged with `:native_backend`
+- Run tests excluding native backend: `mix test --exclude native_backend`
+- Native backend tests require ta-lib to be built
+
+### Input/Output Types
+
+All indicator functions support three input types:
+- `list(float())` - Simple list of floats
+- `TheoryCraft.DataSeries.t()` - DataSeries struct
+- `TheoryCraft.TimeSeries.t()` - TimeSeries struct (with DateTime keys)
+
+**Important**: DataSeries and TimeSeries store data in **newest-first** order, but ta-lib expects **oldest-first**. TheoryCraftTA handles this automatically:
+1. Input is reversed before calculation
+2. Result is reconstructed in the original type and order
 
 ## Coding Guidelines
 

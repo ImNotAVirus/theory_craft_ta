@@ -1,8 +1,5 @@
 defmodule TheoryCraftTATest do
-  use ExUnit.Case
-  doctest TheoryCraftTA
+  use ExUnit.Case, async: true
 
-  test "greets the world" do
-    assert TheoryCraftTA.hello() == :world
-  end
+  doctest TheoryCraftTA
 end
