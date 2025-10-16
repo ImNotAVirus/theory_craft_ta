@@ -1,0 +1,11 @@
+[build]
+# Mount the project root directory (two levels up) so build.rs can access tools/ and other project files
+# This is needed because build.rs needs to run build_talib.sh from the tools/ directory
+volumes = ["../.."]
+
+[build.env]
+passthrough = [
+  "RUSTLER_NIF_VERSION",
+  "RUSTFLAGS",
+  "CMAKE_ARGS"
+]
