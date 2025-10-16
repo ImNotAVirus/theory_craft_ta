@@ -86,7 +86,7 @@ jobs:
         if: startsWith(matrix.job.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake unzip
+          sudo apt-get install -y cmake
 
       - name: Install CMake (macOS)
         if: startsWith(matrix.job.os, 'macos')

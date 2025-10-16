@@ -28,7 +28,7 @@ fi
 
 # Download TA-Lib from GitHub
 echo "Downloading TA-Lib ${TALIB_VERSION}..."
-curl -L -o "talib-${TALIB_VERSION}.zip" "https://github.com/TA-Lib/ta-lib/archive/refs/tags/v${TALIB_VERSION}.zip"
+curl -L -o "talib-${TALIB_VERSION}.tar.gz" "https://github.com/TA-Lib/ta-lib/archive/refs/tags/v${TALIB_VERSION}.tar.gz"
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to download TA-Lib"
@@ -37,7 +37,7 @@ fi
 
 # Extract archive
 echo "Extracting archive..."
-unzip -q "talib-${TALIB_VERSION}.zip"
+tar -xzf "talib-${TALIB_VERSION}.tar.gz"
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to extract TA-Lib"
