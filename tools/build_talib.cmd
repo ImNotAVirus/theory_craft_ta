@@ -96,6 +96,17 @@ if errorlevel 1 (
     exit /B 1
 )
 
+REM Normalize library names for cross-platform compatibility
+REM Rename ta-lib.lib (DLL import lib) to ta-lib-dyn.lib
+REM Rename ta-lib-static.lib to ta-lib.lib (to match Unix naming)
+echo Normalizing library names...
+if exist "%INSTALL_DIR%\lib\ta-lib.lib" (
+    ren "%INSTALL_DIR%\lib\ta-lib.lib" "ta-lib-dyn.lib"
+)
+if exist "%INSTALL_DIR%\lib\ta-lib-static.lib" (
+    ren "%INSTALL_DIR%\lib\ta-lib-static.lib" "ta-lib.lib"
+)
+
 endlocal
 
 echo TA-Lib %TALIB_VERSION% built and installed successfully!

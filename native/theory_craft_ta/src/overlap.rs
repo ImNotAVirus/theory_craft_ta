@@ -36,7 +36,7 @@ mod talib_ffi {
         UnknownErr = 0xFFFF,
     }
 
-    #[link(name = "ta-lib-static", kind = "static")]
+    #[link(name = "ta-lib", kind = "static")]
     extern "C" {
         pub fn TA_SMA(
             start_idx: i32,
