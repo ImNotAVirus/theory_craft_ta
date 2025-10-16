@@ -3,7 +3,7 @@ name = "theory_craft_ta"
 version = "0.1.0"
 authors = []
 edition = "2021"
-# build = "build.rs"  # Temporarily disabled to test musl compilation
+build = "build.rs"
 
 [lib]
 name = "theory_craft_ta"
