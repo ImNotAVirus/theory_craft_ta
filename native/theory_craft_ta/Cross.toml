@@ -2,5 +2,6 @@
 passthrough = [
   "RUSTLER_NIF_VERSION",
   "RUSTFLAGS",
-  "CMAKE_ARGS"
+  "CMAKE_ARGS",
+  "TALIB_USE_TEMP_DIR"
 ]

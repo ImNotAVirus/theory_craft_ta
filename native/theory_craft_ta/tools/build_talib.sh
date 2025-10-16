@@ -5,10 +5,26 @@
 set -e
 
 TALIB_VERSION="${TALIB_VERSION:-0.6.4}"
+# Store absolute path to install directory in project root
 INSTALL_DIR="$(pwd)/ta-lib-install"
 
 echo "Building TA-Lib version ${TALIB_VERSION}"
 echo "Install directory: ${INSTALL_DIR}"
+
+# Use temporary directory for cross-compilation builds (read-only project root)
+# Otherwise use current directory for local builds
+if [ -n "${TALIB_USE_TEMP_DIR}" ]; then
+    BUILD_DIR=$(mktemp -d)
+    echo "Using temporary directory: ${BUILD_DIR}"
+
+    # Trap to clean up temp directory on exit
+    trap "rm -rf ${BUILD_DIR}" EXIT
+
+    cd "${BUILD_DIR}"
+else
+    BUILD_DIR="$(pwd)"
+    echo "Using current directory for build"
+fi
 
 # Download TA-Lib from GitHub
 echo "Downloading TA-Lib ${TALIB_VERSION}..."
