@@ -71,10 +71,12 @@ jobs:
           echo "CMAKE_ARGS=${{ matrix.job.cmake-args }}" >> $GITHUB_ENV
         if: ${{ matrix.job.cmake-args }}
 
-      - name: Enable temp directory for cross builds
+      - name: Setup for cross builds
         shell: bash
         run: |
           echo "TALIB_USE_TEMP_DIR=1" >> $GITHUB_ENV
+          # Pre-create ta-lib-install directory so cross-rs can mount it
+          mkdir -p ta-lib-install
         if: ${{ matrix.job.use-cross }}
 
       - name: Add target

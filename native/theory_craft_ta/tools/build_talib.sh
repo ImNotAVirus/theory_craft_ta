@@ -5,19 +5,17 @@
 set -e
 
 TALIB_VERSION="${TALIB_VERSION:-0.6.4}"
-# Store absolute path to final install directory in project root
-FINAL_INSTALL_DIR="$(pwd)/ta-lib-install"
+# Store absolute path to install directory in project root
+INSTALL_DIR="$(pwd)/ta-lib-install"
 
 echo "Building TA-Lib version ${TALIB_VERSION}"
-echo "Final install directory: ${FINAL_INSTALL_DIR}"
+echo "Install directory: ${INSTALL_DIR}"
 
-# Use temporary directory for cross-compilation builds (read-only project root)
-# Otherwise use current directory for local builds
+# Use temporary directory for download/build in cross-compilation
+# (project root is read-only in cross-rs Docker containers)
 if [ -n "${TALIB_USE_TEMP_DIR}" ]; then
     BUILD_DIR=$(mktemp -d)
-    INSTALL_DIR="${BUILD_DIR}/ta-lib-install"
     echo "Using temporary build directory: ${BUILD_DIR}"
-    echo "Temporary install directory: ${INSTALL_DIR}"
 
     # Trap to clean up temp directory on exit
     trap "rm -rf ${BUILD_DIR}" EXIT
@@ -25,7 +23,6 @@ if [ -n "${TALIB_USE_TEMP_DIR}" ]; then
     cd "${BUILD_DIR}"
 else
     BUILD_DIR="$(pwd)"
-    INSTALL_DIR="${FINAL_INSTALL_DIR}"
     echo "Using current directory for build"
 fi
 
@@ -91,22 +88,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Copy to final location if using temporary directory
-if [ -n "${TALIB_USE_TEMP_DIR}" ]; then
-    echo "Copying installation to final directory: ${FINAL_INSTALL_DIR}..."
-    mkdir -p "${FINAL_INSTALL_DIR}"
-    cp -r "${INSTALL_DIR}"/* "${FINAL_INSTALL_DIR}"/
-
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to copy to final directory"
-        exit 1
-    fi
-
-    echo "TA-Lib ${TALIB_VERSION} built and installed successfully!"
-    echo "Library location: ${FINAL_INSTALL_DIR}/lib"
-    echo "Headers location: ${FINAL_INSTALL_DIR}/include"
-else
-    echo "TA-Lib ${TALIB_VERSION} built and installed successfully!"
-    echo "Library location: ${INSTALL_DIR}/lib"
-    echo "Headers location: ${INSTALL_DIR}/include"
-fi
+echo "TA-Lib ${TALIB_VERSION} built and installed successfully!"
+echo "Library location: ${INSTALL_DIR}/lib"
+echo "Headers location: ${INSTALL_DIR}/include"
