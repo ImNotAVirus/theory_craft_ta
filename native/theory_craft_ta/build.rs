@@ -54,13 +54,18 @@ fn main() {
 }
 
 fn build_ta_lib(project_root: &std::path::Path) -> Result<(), String> {
-    let tools_dir = project_root.join("tools");
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let manifest_path = PathBuf::from(&manifest_dir);
 
-    let build_script = if cfg!(target_os = "windows") {
-        tools_dir.join("build_talib.cmd")
+    let script_name = if cfg!(target_os = "windows") {
+        "build_talib.cmd"
     } else {
-        tools_dir.join("build_talib.sh")
+        "build_talib.sh"
     };
+
+    // Use local tools directory (in native/theory_craft_ta/tools/)
+    let tools_dir = manifest_path.join("tools");
+    let build_script = tools_dir.join(script_name);
 
     if !build_script.exists() {
         return Err(format!(

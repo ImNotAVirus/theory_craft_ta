@@ -74,13 +74,9 @@ mix rust.fmt
 
 # Run Rust linter
 mix rust.clippy
-
-# Build ta-lib from source (Windows)
-tools\build_talib.cmd
-
-# Build ta-lib from source (Linux/Mac)
-tools/build_talib.sh
 ```
+
+**Note**: ta-lib is built automatically by the Rust build script (`build.rs`) when compiling the NIF. The build scripts are located in `native/theory_craft_ta/tools/` and are invoked automatically during compilation.
 
 **Windows Disk Space Issue**: If you encounter "Espace insuffisant sur le disque" errors during Rust compilation, set `TMPDIR` to a drive with more space:
 ```bash
