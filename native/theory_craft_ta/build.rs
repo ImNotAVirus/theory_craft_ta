@@ -4,9 +4,20 @@ use std::process::Command;
 
 fn main() {
     eprintln!("=== BUILD.RS STARTED ===");
+    eprintln!("=== TARGET: {:?} ===", env::var("TARGET"));
+    eprintln!("=== HOST: {:?} ===", env::var("HOST"));
+    eprintln!("=== CARGO_CFG_TARGET_ENV: {:?} ===", env::var("CARGO_CFG_TARGET_ENV"));
 
     // Declare the custom cfg for conditional compilation
     println!("cargo:rustc-check-cfg=cfg(has_talib)");
+
+    // Check if we're building for musl - skip ta-lib for now to test
+    let target = env::var("TARGET").unwrap_or_default();
+    if target.contains("musl") {
+        eprintln!("=== MUSL TARGET DETECTED - SKIPPING TA-LIB ===");
+        eprintln!("=== This is a test to see if cdylib works without ta-lib ===");
+        return;
+    }
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_path = PathBuf::from(&manifest_dir);
