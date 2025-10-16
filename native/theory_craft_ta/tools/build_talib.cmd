@@ -34,7 +34,13 @@ if exist "%VSWHERE%" (
 )
 
 if not defined TALIB_VERSION set TALIB_VERSION=0.6.4
-set INSTALL_DIR=%CD%\ta-lib-install
+
+REM Use TALIB_INSTALL_DIR if provided by build.rs, otherwise default to current directory
+if defined TALIB_INSTALL_DIR (
+    set INSTALL_DIR=%TALIB_INSTALL_DIR%
+) else (
+    set INSTALL_DIR=%CD%\ta-lib-install
+)
 
 echo Building TA-Lib version %TALIB_VERSION%
 echo Install directory: %INSTALL_DIR%

@@ -75,8 +75,6 @@ jobs:
         shell: bash
         run: |
           echo "TALIB_USE_TEMP_DIR=1" >> $GITHUB_ENV
-          # Pre-create ta-lib-install directory so cross-rs can mount it
-          mkdir -p ta-lib-install
         if: ${{ matrix.job.use-cross }}
 
       - name: Add target

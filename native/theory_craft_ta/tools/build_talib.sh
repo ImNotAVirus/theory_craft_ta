@@ -5,8 +5,12 @@
 set -e
 
 TALIB_VERSION="${TALIB_VERSION:-0.6.4}"
-# Store absolute path to install directory in project root
-INSTALL_DIR="$(pwd)/ta-lib-install"
+# Use TALIB_INSTALL_DIR if provided by build.rs, otherwise default to project root
+if [ -n "${TALIB_INSTALL_DIR}" ]; then
+    INSTALL_DIR="${TALIB_INSTALL_DIR}"
+else
+    INSTALL_DIR="$(pwd)/ta-lib-install"
+fi
 
 echo "Building TA-Lib version ${TALIB_VERSION}"
 echo "Install directory: ${INSTALL_DIR}"

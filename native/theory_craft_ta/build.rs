@@ -15,7 +15,14 @@ fn main() {
         .and_then(|p| p.parent())
         .expect("Failed to find project root");
 
-    let ta_lib_install = project_root.join("ta-lib-install");
+    // For cross-compilation, install in OUT_DIR (writable)
+    // For native builds, install in project root (persistent cache)
+    let ta_lib_install = if env::var("TALIB_USE_TEMP_DIR").is_ok() {
+        let out_dir = env::var("OUT_DIR").unwrap();
+        PathBuf::from(out_dir).join("ta-lib-install")
+    } else {
+        project_root.join("ta-lib-install")
+    };
 
     eprintln!(
         "=== Checking for ta-lib at: {} ===",
@@ -28,7 +35,7 @@ fn main() {
         eprintln!("=== TA-Lib NOT FOUND - ATTEMPTING TO BUILD ===");
 
         // Build ta-lib automatically - panic if it fails
-        build_ta_lib(project_root).expect("Failed to build ta-lib");
+        build_ta_lib(project_root, &ta_lib_install).expect("Failed to build ta-lib");
 
         eprintln!("=== TA-LIB BUILD SUCCESSFUL ===");
     }
@@ -53,7 +60,7 @@ fn main() {
     println!("cargo:rerun-if-changed={}", ta_lib_install.display());
 }
 
-fn build_ta_lib(project_root: &std::path::Path) -> Result<(), String> {
+fn build_ta_lib(project_root: &std::path::Path, install_dir: &std::path::Path) -> Result<(), String> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_path = PathBuf::from(&manifest_dir);
 
@@ -78,18 +85,24 @@ fn build_ta_lib(project_root: &std::path::Path) -> Result<(), String> {
         "=== Running ta-lib build script: {} ===",
         build_script.display()
     );
+    eprintln!(
+        "=== Install directory: {} ===",
+        install_dir.display()
+    );
 
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .arg("/C")
             .arg(&build_script)
             .current_dir(project_root)
+            .env("TALIB_INSTALL_DIR", install_dir)
             .output()
             .map_err(|e| format!("Failed to execute build script: {}", e))?
     } else {
         Command::new("sh")
             .arg(&build_script)
             .current_dir(project_root)
+            .env("TALIB_INSTALL_DIR", install_dir)
             .output()
             .map_err(|e| format!("Failed to execute build script: {}", e))?
     };
