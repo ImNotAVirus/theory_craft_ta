@@ -29,6 +29,12 @@ defmodule TheoryCraftTA.Native do
     mode: mode,
     force_build: System.get_env("THEORY_CRAFT_TA_BUILD") in ["1", "true"]
 
-  # NIF stubs (will be replaced by actual NIF implementations)
-  def overlap_sma(_data, _period), do: :erlang.nif_error(:nif_not_loaded)
+  ## NIF stubs
+
+  def overlap_sma(_data, _period), do: error()
+  def overlap_sma_next(_data, _period, _prev), do: error()
+
+  ## Private functions
+
+  defp error(), do: :erlang.nif_error(:nif_not_loaded)
 end

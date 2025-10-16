@@ -7,6 +7,8 @@ defmodule TheoryCraftTA.Helpers do
 
   alias TheoryCraft.{DataSeries, TimeSeries}
 
+  ## Public API
+
   @doc """
   Converts input to a list and reverses if it's a DataSeries or TimeSeries.
 

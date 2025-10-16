@@ -22,8 +22,7 @@ defmodule TheoryCraftTA.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application() do
     [
-      extra_applications: [:logger],
-      env: [default_backend: TheoryCraftTA.Native]
+      extra_applications: [:logger]
     ]
   end
 

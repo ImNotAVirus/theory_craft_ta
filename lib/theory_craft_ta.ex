@@ -45,9 +45,11 @@ defmodule TheoryCraftTA do
 
   """
 
-  @backend Application.compile_env(:theory_craft_ta, :default_backend, TheoryCraftTA.Native)
-
   alias TheoryCraft.{DataSeries, TimeSeries}
+
+  @type source :: [float() | nil] | DataSeries.t(float() | nil) | TimeSeries.t(float() | nil)
+
+  @backend Application.compile_env(:theory_craft_ta, :default_backend, TheoryCraftTA.Native)
 
   ## Overlap Indicators
 
@@ -58,7 +60,7 @@ defmodule TheoryCraftTA do
 
   ## Parameters
     - `data` - Input data (list of floats, DataSeries, or TimeSeries)
-    - `period` - Number of periods for the moving average (must be >= 2)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
 
   ## Returns
     - `{:ok, result}` where result is the same type as input with SMA values
@@ -69,8 +71,7 @@ defmodule TheoryCraftTA do
       {:ok, [nil, nil, 2.0, 3.0, 4.0]}
 
   """
-  @spec sma(list(float()) | DataSeries.t() | TimeSeries.t(), pos_integer()) ::
-          {:ok, list(float() | nil) | DataSeries.t() | TimeSeries.t()} | {:error, String.t()}
+  @spec sma(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
   defdelegate sma(data, period), to: Module.concat(@backend, Overlap)
 
   @doc """
@@ -80,25 +81,84 @@ defmodule TheoryCraftTA do
 
   ## Parameters
     - `data` - Input data (list of floats, DataSeries, or TimeSeries)
-    - `period` - Number of periods for the moving average (must be >= 2)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
 
   ## Returns
     - Result of the same type as input with SMA values
 
   ## Raises
     - `RuntimeError` if validation fails or calculation error occurs
+    - `FunctionClauseError` if period is not an integer
 
   ## Examples
       iex> TheoryCraftTA.sma!([1.0, 2.0, 3.0, 4.0, 5.0], 3)
       [nil, nil, 2.0, 3.0, 4.0]
 
   """
-  @spec sma!(list(float()) | DataSeries.t() | TimeSeries.t(), pos_integer()) ::
-          list(float() | nil) | DataSeries.t() | TimeSeries.t()
+  @spec sma!(source(), pos_integer()) :: source()
   def sma!(data, period) do
     case sma(data, period) do
       {:ok, result} -> result
       {:error, reason} -> raise "SMA error: #{reason}"
+    end
+  end
+
+  @doc """
+  Incremental SMA calculation.
+
+  When streaming data, this function efficiently calculates the next SMA value
+  without reprocessing the entire dataset.
+
+  ## Behavior
+    - If input size == prev size: Updates last value (same bar, multiple ticks)
+    - If input size == prev size + 1: Adds new value (new bar)
+
+  ## Parameters
+    - `data` - Input data (must have one more element than prev, or same length)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+    - `prev` - Previous SMA result
+
+  ## Returns
+    - `{:ok, result}` with updated SMA values
+    - `{:error, reason}` if validation fails
+
+  ## Examples
+      iex> TheoryCraftTA.sma_next([1.0, 2.0, 3.0, 4.0, 5.0], 2, [nil, 1.5, 2.5, 3.5])
+      {:ok, [nil, 1.5, 2.5, 3.5, 4.5]}
+
+      iex> TheoryCraftTA.sma_next([1.0, 2.0, 3.0, 4.0, 5.5], 2, [nil, 1.5, 2.5, 3.5, 4.5])
+      {:ok, [nil, 1.5, 2.5, 3.5, 4.75]}
+
+  """
+  @spec sma_next(source(), pos_integer(), source()) :: {:ok, source()} | {:error, String.t()}
+  defdelegate sma_next(data, period, prev), to: Module.concat(@backend, Overlap)
+
+  @doc """
+  Incremental SMA calculation - Bang version.
+
+  Same as `sma_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `data` - Input data (must have one more element than prev, or same length)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+    - `prev` - Previous SMA result
+
+  ## Returns
+    - Result with updated SMA values
+
+  ## Raises
+    - `RuntimeError` if validation fails or calculation error occurs
+
+  ## Examples
+      iex> TheoryCraftTA.sma_next!([1.0, 2.0, 3.0, 4.0, 5.0], 2, [nil, 1.5, 2.5, 3.5])
+      [nil, 1.5, 2.5, 3.5, 4.5]
+
+  """
+  @spec sma_next!(source(), pos_integer(), source()) :: source()
+  def sma_next!(data, period, prev) do
+    case sma_next(data, period, prev) do
+      {:ok, result} -> result
+      {:error, reason} -> raise "SMA_next error: #{reason}"
     end
   end
 end
