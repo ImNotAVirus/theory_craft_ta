@@ -70,7 +70,7 @@ defmodule TheoryCraftTA.MixProject do
       {:rustler_precompiled, "~> 0.8"},
 
       ## Optional
-      {:rustler, "~> 0.36.0", optional: not (@dev? or @force_build?)},
+      {:rustler, "~> 0.37.0", optional: not (@dev? or @force_build?)},
 
       ## Dev
       {:tidewave, "~> 0.5", only: :dev},
