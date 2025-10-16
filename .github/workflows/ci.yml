@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - otp: "25.3"
-            elixir: "1.14"
+            elixir: "1.15"
           - otp: "27.2"
             elixir: "1.18"
     steps:
@@ -61,8 +61,8 @@ jobs:
       - name: Run tests
         run: mix test
 
-      - name: Run property tests
-        run: mix test --only property
+      - name: Run tests
+        run: mix test --trace
 
   format:
     name: Format

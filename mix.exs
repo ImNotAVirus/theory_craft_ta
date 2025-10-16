@@ -9,7 +9,7 @@ defmodule TheoryCraftTA.MixProject do
     [
       app: :theory_craft_ta,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       deps: deps(),
       aliases: aliases(),
       package: package(),

@@ -181,7 +181,7 @@ Follow the same coding guidelines as the parent TheoryCraft project. Key points:
 ## Project Configuration
 
 ### Mix Project Settings
-- Elixir version: `~> 1.14`
+- Elixir version: `~> 1.15`
 - Version format: `"0.1.0-dev"` (development) or `"0.1.0"` (release)
 - Compiler warnings treated as errors (`warnings_as_errors: true`)
 - Test support files in `test/support` (added to compile paths in test env)
