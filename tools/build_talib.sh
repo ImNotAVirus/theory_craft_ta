@@ -42,10 +42,12 @@ cd _build
 
 # Configure with CMake
 echo "Configuring with CMake..."
-cmake \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
-    ..
+
+# Use CMAKE_ARGS from environment if set, otherwise default
+CMAKE_ARGS="${CMAKE_ARGS:--DCMAKE_BUILD_TYPE=Release}"
+CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}"
+
+cmake $CMAKE_ARGS ..
 
 if [ $? -ne 0 ]; then
     echo "Error: CMake configuration failed"
