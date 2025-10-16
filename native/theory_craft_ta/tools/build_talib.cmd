@@ -45,6 +45,13 @@ if defined TALIB_INSTALL_DIR (
 echo Building TA-Lib version %TALIB_VERSION%
 echo Install directory: %INSTALL_DIR%
 
+REM Use temporary directory for download/build (cleaner, avoids polluting workspace)
+set "BUILD_DIR=%TEMP%\talib-build-%RANDOM%"
+mkdir "%BUILD_DIR%"
+echo Using temporary build directory: %BUILD_DIR%
+
+cd /d "%BUILD_DIR%"
+
 REM Download TA-Lib from GitHub
 echo Downloading TA-Lib %TALIB_VERSION%...
 curl -L -o talib-%TALIB_VERSION%.tar.gz https://github.com/TA-Lib/ta-lib/archive/refs/tags/v%TALIB_VERSION%.tar.gz
@@ -112,6 +119,11 @@ if exist "%INSTALL_DIR%\lib\ta-lib.lib" (
 if exist "%INSTALL_DIR%\lib\ta-lib-static.lib" (
     ren "%INSTALL_DIR%\lib\ta-lib-static.lib" "ta-lib.lib"
 )
+
+REM Cleanup temporary build directory
+echo Cleaning up temporary build directory...
+cd /d "%TEMP%"
+rd /s /q "%BUILD_DIR%"
 
 endlocal
 

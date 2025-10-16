@@ -31,14 +31,7 @@ jobs:
           elixir-version: ${{ matrix.elixir }}
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake unzip
-
-      - name: Cache TA-Lib
-        id: cache-talib
-        uses: actions/cache@v4
-        with:
-          path: ta-lib-install
-          key: ${{ runner.os }}-talib-0.6.4
+        run: sudo apt-get update && sudo apt-get install -y cmake
 
       - uses: Swatinem/rust-cache@v2
         with:

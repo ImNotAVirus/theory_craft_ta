@@ -15,14 +15,9 @@ fn main() {
         .and_then(|p| p.parent())
         .expect("Failed to find project root");
 
-    // For cross-compilation, install in OUT_DIR (writable)
-    // For native builds, install in project root (persistent cache)
-    let ta_lib_install = if env::var("TALIB_USE_TEMP_DIR").is_ok() {
-        let out_dir = env::var("OUT_DIR").unwrap();
-        PathBuf::from(out_dir).join("ta-lib-install")
-    } else {
-        project_root.join("ta-lib-install")
-    };
+    // Always install in OUT_DIR
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let ta_lib_install = PathBuf::from(out_dir).join("ta-lib-install");
 
     eprintln!(
         "=== Checking for ta-lib at: {} ===",
@@ -60,7 +55,10 @@ fn main() {
     println!("cargo:rerun-if-changed={}", ta_lib_install.display());
 }
 
-fn build_ta_lib(project_root: &std::path::Path, install_dir: &std::path::Path) -> Result<(), String> {
+fn build_ta_lib(
+    project_root: &std::path::Path,
+    install_dir: &std::path::Path,
+) -> Result<(), String> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_path = PathBuf::from(&manifest_dir);
 
@@ -85,10 +83,7 @@ fn build_ta_lib(project_root: &std::path::Path, install_dir: &std::path::Path) -
         "=== Running ta-lib build script: {} ===",
         build_script.display()
     );
-    eprintln!(
-        "=== Install directory: {} ===",
-        install_dir.display()
-    );
+    eprintln!("=== Install directory: {} ===", install_dir.display());
 
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")

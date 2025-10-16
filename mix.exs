@@ -35,8 +35,6 @@ defmodule TheoryCraftTA.MixProject do
       "rust.test": ["cmd cargo test --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.fmt": ["cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.clippy": ["cmd cargo clippy --manifest-path=native/theory_craft_ta/Cargo.toml"],
-      "ta-lib.clean": &clean_talib/1,
-      clean: ["clean", "rust.clean", "ta-lib.clean"],
       ci: ["format", "rust.fmt", "rust.lint", "test"]
     ]
   end
@@ -81,22 +79,5 @@ defmodule TheoryCraftTA.MixProject do
       ## Test
       {:stream_data, "~> 1.2", only: :test}
     ]
-  end
-
-  defp clean_talib(_) do
-    patterns = [
-      "talib-*.zip",
-      "ta-lib-*/",
-      "ta-lib-install/"
-    ]
-
-    for pattern <- patterns do
-      pattern
-      |> Path.wildcard()
-      |> Enum.each(fn path ->
-        Mix.shell().info("Removing #{path}...")
-        File.rm_rf!(path)
-      end)
-    end
   end
 end

@@ -15,20 +15,14 @@ fi
 echo "Building TA-Lib version ${TALIB_VERSION}"
 echo "Install directory: ${INSTALL_DIR}"
 
-# Use temporary directory for download/build in cross-compilation
-# (project root is read-only in cross-rs Docker containers)
-if [ -n "${TALIB_USE_TEMP_DIR}" ]; then
-    BUILD_DIR=$(mktemp -d)
-    echo "Using temporary build directory: ${BUILD_DIR}"
+# Use temporary directory for download/build (cleaner, avoids polluting workspace)
+BUILD_DIR=$(mktemp -d)
+echo "Using temporary build directory: ${BUILD_DIR}"
 
-    # Trap to clean up temp directory on exit
-    trap "rm -rf ${BUILD_DIR}" EXIT
+# Trap to clean up temp directory on exit
+trap "rm -rf ${BUILD_DIR}" EXIT
 
-    cd "${BUILD_DIR}"
-else
-    BUILD_DIR="$(pwd)"
-    echo "Using current directory for build"
-fi
+cd "${BUILD_DIR}"
 
 # Download TA-Lib from GitHub
 echo "Downloading TA-Lib ${TALIB_VERSION}..."
