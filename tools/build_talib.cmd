@@ -96,16 +96,6 @@ if errorlevel 1 (
     exit /B 1
 )
 
-REM Normalize library name for cross-platform compatibility
-REM Copy ta-lib-static.lib to ta_lib.lib so Rust can find it with the same name on all platforms
-if exist "%INSTALL_DIR%\lib\ta-lib-static.lib" (
-    echo Normalizing library name to ta_lib.lib...
-    copy /Y "%INSTALL_DIR%\lib\ta-lib-static.lib" "%INSTALL_DIR%\lib\ta_lib.lib" >nul
-    if errorlevel 1 (
-        echo Warning: Failed to copy library to normalized name
-    )
-)
-
 endlocal
 
 echo TA-Lib %TALIB_VERSION% built and installed successfully!

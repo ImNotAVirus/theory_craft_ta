@@ -43,7 +43,7 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
 
     // Link ta-lib statically
-    println!("cargo:rustc-link-lib=static=ta_lib");
+    println!("cargo:rustc-link-lib=static=ta-lib-static");
 
     // Add include path for bindgen or manual FFI
     let include_dir = ta_lib_install.join("include");
