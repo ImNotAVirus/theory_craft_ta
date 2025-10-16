@@ -35,7 +35,7 @@ jobs:
         job:
           - { target: aarch64-apple-darwin, os: macos-13, cmake-args: "-DCMAKE_OSX_ARCHITECTURES=arm64" }
           - { target: aarch64-unknown-linux-gnu, os: ubuntu-22.04, use-cross: true, cmake-args: "-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_SYSTEM_NAME=Linux" }
-          - { target: aarch64-unknown-linux-musl, os: ubuntu-22.04, use-cross: true, cmake-args: "-DCMAKE_C_COMPILER=aarch64-linux-musl-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-musl-g++ -DCMAKE_SYSTEM_NAME=Linux" }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-22.04, use-cross: true }
           - { target: x86_64-apple-darwin, os: macos-13, cmake-args: "-DCMAKE_OSX_ARCHITECTURES=x86_64" }
           - { target: x86_64-pc-windows-gnu, os: windows-2025, rustflags: "-C target-feature=+fxsr,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+popcnt,+avx,+fma" }
           - { target: x86_64-pc-windows-gnu, os: windows-2025, variant: "legacy_cpu" }
@@ -45,8 +45,7 @@ jobs:
           - { target: x86_64-unknown-freebsd, os: ubuntu-22.04, use-cross: true, variant: "legacy_cpu", cmake-args: "-DCMAKE_C_COMPILER=x86_64-unknown-freebsd13-gcc -DCMAKE_CXX_COMPILER=x86_64-unknown-freebsd13-g++ -DCMAKE_SYSTEM_NAME=FreeBSD" }
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04, rustflags: "-C target-feature=+fxsr,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+popcnt,+avx,+fma" }
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04, variant: "legacy_cpu" }
-          - { target: x86_64-unknown-linux-musl, os: ubuntu-22.04, use-cross: true, rustflags: "-C target-feature=+fxsr,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+popcnt,+avx,+fma", cmake-args: "-DCMAKE_C_COMPILER=x86_64-linux-musl-gcc -DCMAKE_CXX_COMPILER=x86_64-linux-musl-g++ -DCMAKE_SYSTEM_NAME=Linux" }
-          - { target: x86_64-unknown-linux-musl, os: ubuntu-22.04, use-cross: true, variant: "legacy_cpu", cmake-args: "-DCMAKE_C_COMPILER=x86_64-linux-musl-gcc -DCMAKE_CXX_COMPILER=x86_64-linux-musl-g++ -DCMAKE_SYSTEM_NAME=Linux" }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-22.04, use-cross: true }
 
     steps:
       - name: Checkout source code

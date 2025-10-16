@@ -30,11 +30,11 @@ defmodule TheoryCraftTA.MixProject do
     [
       tidewave:
         "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4002) end)'",
+      "rust.lint": ["cmd cargo clippy --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.build": ["cmd cargo build --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.clean": ["cmd cargo clean --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.test": ["cmd cargo test --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.fmt": ["cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml"],
-      "rust.clippy": ["cmd cargo clippy --manifest-path=native/theory_craft_ta/Cargo.toml"],
       ci: ["format", "rust.fmt", "rust.lint", "test"]
     ]
   end

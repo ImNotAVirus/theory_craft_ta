@@ -6,7 +6,10 @@ fn main() {
     eprintln!("=== BUILD.RS STARTED ===");
     eprintln!("=== TARGET: {:?} ===", env::var("TARGET"));
     eprintln!("=== HOST: {:?} ===", env::var("HOST"));
-    eprintln!("=== CARGO_CFG_TARGET_ENV: {:?} ===", env::var("CARGO_CFG_TARGET_ENV"));
+    eprintln!(
+        "=== CARGO_CFG_TARGET_ENV: {:?} ===",
+        env::var("CARGO_CFG_TARGET_ENV")
+    );
 
     // Declare the custom cfg for conditional compilation
     println!("cargo:rustc-check-cfg=cfg(has_talib)");
