@@ -1,4 +1,4 @@
-defmodule TheoryCraftTA.Elixir.State.SMA do
+defmodule TheoryCraftTA.Elixir.OverlapState.SMA do
   @moduledoc false
 
   # Internal state struct for SMA calculation.
@@ -26,10 +26,10 @@ defmodule TheoryCraftTA.Elixir.State.SMA do
 
   ## Examples
 
-      iex> TheoryCraftTA.Elixir.State.SMA.init(14)
-      {:ok, %TheoryCraftTA.Elixir.State.SMA{period: 14, buffer: [], lookback_count: 0}}
+      iex> TheoryCraftTA.Elixir.OverlapState.SMA.init(14)
+      {:ok, %TheoryCraftTA.Elixir.OverlapState.SMA{period: 14, buffer: [], lookback_count: 0}}
 
-      iex> TheoryCraftTA.Elixir.State.SMA.init(1)
+      iex> TheoryCraftTA.Elixir.OverlapState.SMA.init(1)
       {:error, "Invalid period: must be >= 2 for SMA"}
 
   """
@@ -63,14 +63,11 @@ defmodule TheoryCraftTA.Elixir.State.SMA do
 
   ## Examples
 
-      # First bar
-      iex> {:ok, state} = TheoryCraftTA.Elixir.State.SMA.init(2)
-      iex> {:ok, sma, state2} = TheoryCraftTA.Elixir.State.SMA.next(state, 100.0, true)
+      iex> {:ok, state} = TheoryCraftTA.Elixir.OverlapState.SMA.init(2)
+      iex> {:ok, sma, state2} = TheoryCraftTA.Elixir.OverlapState.SMA.next(state, 100.0, true)
       iex> sma
       nil
-
-      # Second bar - first SMA value
-      iex> {:ok, sma, _state3} = TheoryCraftTA.Elixir.State.SMA.next(state2, 110.0, true)
+      iex> {:ok, sma, _state3} = TheoryCraftTA.Elixir.OverlapState.SMA.next(state2, 110.0, true)
       iex> sma
       105.0
 

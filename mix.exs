@@ -79,7 +79,7 @@ defmodule TheoryCraftTA.MixProject do
       {:benchee, "~> 1.4", only: :bench},
 
       ## Test
-      {:stream_data, "~> 1.2", only: :test}
+      {:stream_data, "~> 1.2", only: [:test]}
     ]
   end
 end

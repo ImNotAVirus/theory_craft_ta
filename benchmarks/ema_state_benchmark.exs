@@ -1,5 +1,5 @@
-alias TheoryCraftTA.Elixir.State.EMA, as: ElixirEMA
-alias TheoryCraftTA.Native.State.EMA, as: NativeEMA
+alias TheoryCraftTA.Elixir.OverlapState.EMA, as: ElixirEMA
+alias TheoryCraftTA.Native.OverlapState.EMA, as: NativeEMA
 
 # Generate test data of various sizes
 small_data = Enum.map(1..100, &(&1 * 1.0))

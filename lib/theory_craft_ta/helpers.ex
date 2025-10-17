@@ -21,6 +21,15 @@ defmodule TheoryCraftTA.Helpers do
   ## Returns
     - A list of values in oldest-first order
 
+  ## Examples
+
+      iex> TheoryCraftTA.Helpers.to_list_and_reverse([1.0, 2.0, 3.0])
+      [1.0, 2.0, 3.0]
+
+      iex> ds = TheoryCraft.DataSeries.new() |> TheoryCraft.DataSeries.add(1.0) |> TheoryCraft.DataSeries.add(2.0)
+      iex> TheoryCraftTA.Helpers.to_list_and_reverse(ds)
+      [1.0, 2.0]
+
   """
   @spec to_list_and_reverse(TheoryCraftTA.source()) :: list(float() | nil)
   def to_list_and_reverse(%DataSeries{} = ds) do
@@ -45,6 +54,16 @@ defmodule TheoryCraftTA.Helpers do
 
   ## Returns
     - The same type as `original` with the new values
+
+  ## Examples
+
+      iex> TheoryCraftTA.Helpers.rebuild_same_type([1.0, 2.0], [10.0, 20.0])
+      [10.0, 20.0]
+
+      iex> ds = TheoryCraft.DataSeries.new() |> TheoryCraft.DataSeries.add(1.0) |> TheoryCraft.DataSeries.add(2.0)
+      iex> result = TheoryCraftTA.Helpers.rebuild_same_type(ds, [10.0, 20.0])
+      iex> TheoryCraft.DataSeries.values(result)
+      [20.0, 10.0]
 
   """
   @spec rebuild_same_type(TheoryCraftTA.source(), list(float() | nil)) ::

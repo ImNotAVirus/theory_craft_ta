@@ -1,6 +1,6 @@
 alias TheoryCraft.{DataSeries, TimeSeries}
-alias TheoryCraftTA.Native.Overlap, as: NativeTA
-alias TheoryCraftTA.Elixir.Overlap, as: ElixirTA
+alias TheoryCraftTA.Native.Overlap.EMA, as: NativeEMA
+alias TheoryCraftTA.Elixir.Overlap.EMA, as: ElixirEMA
 
 # Generate test data of various sizes
 small_data = Enum.map(1..100, &(&1 * 1.0))
@@ -40,12 +40,12 @@ IO.puts("\n=== Small Dataset (100 items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.ema(small_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.ema(small_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.ema(small_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.ema(small_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.ema(small_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.ema(small_ts, 10) end
+    "Native List" => fn -> NativeEMA.ema(small_data, 10) end,
+    "Elixir List" => fn -> ElixirEMA.ema(small_data, 10) end,
+    "Native DataSeries" => fn -> NativeEMA.ema(small_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirEMA.ema(small_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeEMA.ema(small_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirEMA.ema(small_ts, 10) end
   },
   warmup: 2,
   time: 5,
@@ -57,12 +57,12 @@ IO.puts("\n=== Medium Dataset (1K items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.ema(medium_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.ema(medium_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.ema(medium_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.ema(medium_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.ema(medium_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.ema(medium_ts, 10) end
+    "Native List" => fn -> NativeEMA.ema(medium_data, 10) end,
+    "Elixir List" => fn -> ElixirEMA.ema(medium_data, 10) end,
+    "Native DataSeries" => fn -> NativeEMA.ema(medium_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirEMA.ema(medium_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeEMA.ema(medium_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirEMA.ema(medium_ts, 10) end
   },
   warmup: 2,
   time: 5,
@@ -74,12 +74,12 @@ IO.puts("\n=== Large Dataset (10K items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.ema(large_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.ema(large_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.ema(large_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.ema(large_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.ema(large_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.ema(large_ts, 10) end
+    "Native List" => fn -> NativeEMA.ema(large_data, 10) end,
+    "Elixir List" => fn -> ElixirEMA.ema(large_data, 10) end,
+    "Native DataSeries" => fn -> NativeEMA.ema(large_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirEMA.ema(large_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeEMA.ema(large_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirEMA.ema(large_ts, 10) end
   },
   warmup: 2,
   time: 5,

@@ -26,7 +26,7 @@ theory_craft_ta-*.tar
 /docs/
 
 # Local environment scripts (not to be committed)
-/.tools/setup_env.cmd
+/.tools/run_ci.cmd
 /.tools/run_benchmark.cmd
 
 # Rust binary artifacts

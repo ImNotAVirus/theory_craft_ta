@@ -72,7 +72,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec sma(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
-  defdelegate sma(data, period), to: Module.concat(@backend, Overlap)
+  defdelegate sma(data, period), to: Module.concat([@backend, Overlap, SMA])
 
   @doc """
   Simple Moving Average - Bang version.
@@ -123,7 +123,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec ema(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
-  defdelegate ema(data, period), to: Module.concat(@backend, Overlap)
+  defdelegate ema(data, period), to: Module.concat([@backend, Overlap, EMA])
 
   @doc """
   Exponential Moving Average - Bang version.
@@ -154,6 +154,60 @@ defmodule TheoryCraftTA do
     end
   end
 
+  @doc """
+  Weighted Moving Average.
+
+  Calculates the weighted moving average of the input data over the specified period.
+  WMA applies linearly increasing weights to values, with the most recent value having
+  the highest weight.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, result}` where result is the same type as input with WMA values
+    - `{:error, reason}` if validation fails or calculation error occurs
+
+  ## Examples
+      iex> {:ok, result} = TheoryCraftTA.wma([1.0, 2.0, 3.0, 4.0, 5.0], 3)
+      iex> Enum.map(result, fn nil -> nil; x -> Float.round(x, 2) end)
+      [nil, nil, 2.33, 3.33, 4.33]
+
+  """
+  @spec wma(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
+  defdelegate wma(data, period), to: Module.concat([@backend, Overlap, WMA])
+
+  @doc """
+  Weighted Moving Average - Bang version.
+
+  Same as `wma/2` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - Result of the same type as input with WMA values
+
+  ## Raises
+    - `RuntimeError` if validation fails or calculation error occurs
+    - `FunctionClauseError` if period is not an integer
+
+  ## Examples
+      iex> result = TheoryCraftTA.wma!([1.0, 2.0, 3.0, 4.0, 5.0], 3)
+      iex> Enum.map(result, fn nil -> nil; x -> Float.round(x, 2) end)
+      [nil, nil, 2.33, 3.33, 4.33]
+
+  """
+  @spec wma!(source(), pos_integer()) :: source()
+  def wma!(data, period) do
+    case wma(data, period) do
+      {:ok, result} -> result
+      {:error, reason} -> raise "WMA error: #{reason}"
+    end
+  end
+
   ## State-based Indicators
 
   @doc """
@@ -177,7 +231,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec sma_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate sma_state_init(period), to: Module.concat([@backend, State, SMA]), as: :init
+  defdelegate sma_state_init(period), to: Module.concat([@backend, OverlapState, SMA]), as: :init
 
   @doc """
   Initialize SMA state for incremental calculations - Bang version.
@@ -233,7 +287,7 @@ defmodule TheoryCraftTA do
   @spec sma_state_next(term(), float(), boolean()) ::
           {:ok, float() | nil, term()} | {:error, String.t()}
   defdelegate sma_state_next(state, value, is_new_bar),
-    to: Module.concat([@backend, State, SMA]),
+    to: Module.concat([@backend, OverlapState, SMA]),
     as: :next
 
   @doc """
@@ -287,7 +341,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec ema_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate ema_state_init(period), to: Module.concat([@backend, State, EMA]), as: :init
+  defdelegate ema_state_init(period), to: Module.concat([@backend, OverlapState, EMA]), as: :init
 
   @doc """
   Initialize EMA state for incremental calculations - Bang version.
@@ -344,7 +398,7 @@ defmodule TheoryCraftTA do
   @spec ema_state_next(term(), float(), boolean()) ::
           {:ok, float() | nil, term()} | {:error, String.t()}
   defdelegate ema_state_next(state, value, is_new_bar),
-    to: Module.concat([@backend, State, EMA]),
+    to: Module.concat([@backend, OverlapState, EMA]),
     as: :next
 
   @doc """
@@ -374,6 +428,114 @@ defmodule TheoryCraftTA do
   @spec ema_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
   def ema_state_next!(state, value, is_new_bar) do
     unwrap_next!(ema_state_next(state, value, is_new_bar), "EMA")
+  end
+
+  @doc """
+  Initialize WMA state for incremental calculations.
+
+  Creates a new WMA state that can be updated incrementally with each new value.
+  This is useful for streaming data where you want to calculate the WMA as new
+  data arrives without recalculating the entire window.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, state}` - Initial state for WMA calculations
+    - `{:error, reason}` - If validation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.wma_state_init(3)
+      iex> is_reference(state)
+      true
+
+  """
+  @spec wma_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
+  defdelegate wma_state_init(period), to: Module.concat([@backend, OverlapState, WMA]), as: :init
+
+  @doc """
+  Initialize WMA state for incremental calculations - Bang version.
+
+  Same as `wma_state_init/1` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `state` - Initial state for WMA calculations
+
+  ## Raises
+    - `RuntimeError` if validation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.wma_state_init!(3)
+      iex> is_reference(state)
+      true
+
+  """
+  @spec wma_state_init!(pos_integer()) :: term()
+  def wma_state_init!(period) do
+    unwrap_init!(wma_state_init(period), "WMA")
+  end
+
+  @doc """
+  Process next value with WMA state.
+
+  Updates the WMA state with a new value and returns the current WMA value.
+  Supports two modes:
+  - APPEND mode (`is_new_bar = true`): Adds a new value to the window
+  - UPDATE mode (`is_new_bar = false`): Updates the last value in the window
+
+  ## Parameters
+    - `state` - Current WMA state (from `wma_state_init/1` or previous `wma_state_next/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{:ok, wma_value, new_state}` - The WMA value (or nil during warmup) and updated state
+    - `{:error, reason}` - If calculation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.wma_state_init(2)
+      iex> {:ok, nil, state2} = TheoryCraftTA.wma_state_next(state, 100.0, true)
+      iex> {:ok, wma, _state3} = TheoryCraftTA.wma_state_next(state2, 110.0, true)
+      iex> Float.round(wma, 5)
+      106.66667
+
+  """
+  @spec wma_state_next(term(), float(), boolean()) ::
+          {:ok, float() | nil, term()} | {:error, String.t()}
+  defdelegate wma_state_next(state, value, is_new_bar),
+    to: Module.concat([@backend, OverlapState, WMA]),
+    as: :next
+
+  @doc """
+  Process next value with WMA state - Bang version.
+
+  Same as `wma_state_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `state` - Current WMA state (from `wma_state_init!/1` or previous `wma_state_next!/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{wma_value, new_state}` - The WMA value (or nil during warmup) and updated state
+
+  ## Raises
+    - `RuntimeError` if calculation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.wma_state_init!(2)
+      iex> {nil, state2} = TheoryCraftTA.wma_state_next!(state, 100.0, true)
+      iex> {wma, _state3} = TheoryCraftTA.wma_state_next!(state2, 110.0, true)
+      iex> Float.round(wma, 5)
+      106.66667
+
+  """
+  @spec wma_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def wma_state_next!(state, value, is_new_bar) do
+    unwrap_next!(wma_state_next(state, value, is_new_bar), "WMA")
   end
 
   ## Private functions

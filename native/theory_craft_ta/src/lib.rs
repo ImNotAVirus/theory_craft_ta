@@ -23,5 +23,6 @@ rustler::init!("Elixir.TheoryCraftTA.Native", load = load);
 fn load(env: Env, _: Term) -> bool {
     let _ = rustler::resource!(overlap_state::SMAState, env);
     let _ = rustler::resource!(overlap_state::EMAState, env);
+    let _ = rustler::resource!(overlap_state::WMAState, env);
     true
 }

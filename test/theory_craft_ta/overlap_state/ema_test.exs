@@ -1,13 +1,16 @@
-defmodule TheoryCraftTA.State.SMATest do
+defmodule TheoryCraftTA.State.EMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraftTA.Elixir.State.SMA, as: ElixirSMA
-  alias TheoryCraftTA.Native.State.SMA, as: NativeSMA
+  alias TheoryCraftTA.Elixir.OverlapState.EMA, as: ElixirEMA
+  alias TheoryCraftTA.Native.OverlapState.EMA, as: NativeEMA
+
+  doctest TheoryCraftTA.Elixir.OverlapState.EMA
+  doctest TheoryCraftTA.Native.OverlapState.EMA
 
   @backends [
-    {ElixirSMA, "Elixir"},
-    {NativeSMA, "Native"}
+    {ElixirEMA, "Elixir"},
+    {NativeEMA, "Native"}
   ]
 
   ## Setup
@@ -27,7 +30,7 @@ defmodule TheoryCraftTA.State.SMATest do
     end
 
     test "Elixir: stores period in state" do
-      assert {:ok, state} = ElixirSMA.init(14)
+      assert {:ok, state} = ElixirEMA.init(14)
       assert state.period == 14
     end
   end
@@ -42,33 +45,33 @@ defmodule TheoryCraftTA.State.SMATest do
         {:ok, state} = @backend.init(3)
 
         # First bar
-        {:ok, sma1, state2} = @backend.next(state, 100.0, true)
-        assert sma1 == nil
+        {:ok, ema1, state2} = @backend.next(state, 100.0, true)
+        assert ema1 == nil
 
         # Second bar
-        {:ok, sma2, state3} = @backend.next(state2, 110.0, true)
-        assert sma2 == nil
+        {:ok, ema2, state3} = @backend.next(state2, 110.0, true)
+        assert ema2 == nil
 
-        # Third bar - first SMA value
-        {:ok, sma3, _state4} = @backend.next(state3, 120.0, true)
-        expected = (100.0 + 110.0 + 120.0) / 3
-        assert_in_delta(sma3, expected, 0.0001)
+        # Third bar - first EMA value (SMA seed = (100+110+120)/3 = 110.0)
+        {:ok, ema3, _state4} = @backend.next(state3, 120.0, true)
+        assert_in_delta(ema3, 110.0, 0.0001)
       end
 
-      test "#{name}: calculates SMA correctly after warmup" do
+      test "#{name}: calculates EMA correctly after warmup" do
         {:ok, state} = @backend.init(2)
 
         # First bar (warmup)
         {:ok, nil, state2} = @backend.next(state, 100.0, true)
 
-        # Second bar - first SMA
-        {:ok, sma2, state3} = @backend.next(state2, 110.0, true)
-        assert_in_delta(sma2, 105.0, 0.0001)
+        # Second bar - first EMA = SMA seed = (100+110)/2 = 105.0
+        {:ok, ema2, state3} = @backend.next(state2, 110.0, true)
+        assert_in_delta(ema2, 105.0, 0.0001)
 
-        # Third bar - sliding window
-        {:ok, sma3, _state4} = @backend.next(state3, 120.0, true)
-        # Average of 110.0 and 120.0
-        assert_in_delta(sma3, 115.0, 0.0001)
+        # Third bar
+        {:ok, ema3, _state4} = @backend.next(state3, 120.0, true)
+        # k = 2/(2+1) = 0.6667
+        # EMA = (120 - 105) * 0.6667 + 105 = 115.0
+        assert_in_delta(ema3, 115.0, 0.001)
       end
     end
   end
@@ -77,38 +80,38 @@ defmodule TheoryCraftTA.State.SMATest do
     for {backend, name} <- @backends do
       @backend backend
 
-      test "#{name}: updates last value in buffer" do
+      test "#{name}: updates state continuously in UPDATE mode" do
         {:ok, state} = @backend.init(2)
 
         # Build state with warmup
         {:ok, nil, state2} = @backend.next(state, 100.0, true)
-        {:ok, sma2, state3} = @backend.next(state2, 110.0, true)
+        {:ok, _ema2, state3} = @backend.next(state2, 110.0, true)
+        # _ema2 = SMA(100, 110) = 105.0
 
-        # UPDATE mode: replace last value
-        {:ok, sma_update1, state4} = @backend.next(state3, 105.0, false)
-        # Average of 100.0 and 105.0
-        assert_in_delta(sma_update1, 102.5, 0.0001)
+        # UPDATE mode: simulate multiple ticks on same bar
+        # k = 2/(2+1) = 0.6667
+        # ema_update1 = (105 - 105) * 0.6667 + 105 = 105.0
+        {:ok, ema_update1, state4} = @backend.next(state3, 105.0, false)
+        # ema_update2 = (108 - 105) * 0.6667 + 105 = 107.0
+        {:ok, ema_update2, _state5} = @backend.next(state4, 108.0, false)
 
-        {:ok, sma_update2, _state5} = @backend.next(state4, 115.0, false)
-        # Average of 100.0 and 115.0
-        assert_in_delta(sma_update2, 107.5, 0.0001)
-
-        # Original sma2 was average of 100.0 and 110.0 = 105.0
-        assert_in_delta(sma2, 105.0, 0.0001)
+        # Value 105.0 equals _ema2 (105.0), but 108.0 should be different
+        assert_in_delta(ema_update1, 105.0, 0.0001)
+        assert_in_delta(ema_update2, 107.0, 0.001)
       end
     end
 
     test "Elixir: UPDATE mode doesn't increment lookback" do
-      {:ok, state} = ElixirSMA.init(2)
+      {:ok, state} = ElixirEMA.init(2)
 
-      {:ok, nil, state2} = ElixirSMA.next(state, 100.0, true)
-      {:ok, _sma, state3} = ElixirSMA.next(state2, 110.0, true)
+      {:ok, nil, state2} = ElixirEMA.next(state, 100.0, true)
+      {:ok, _ema, state3} = ElixirEMA.next(state2, 110.0, true)
       initial_lookback = state3.lookback_count
 
-      {:ok, _sma, state4} = ElixirSMA.next(state3, 105.0, false)
+      {:ok, _ema, state4} = ElixirEMA.next(state3, 105.0, false)
       assert state4.lookback_count == initial_lookback
 
-      {:ok, _sma, state5} = ElixirSMA.next(state4, 115.0, false)
+      {:ok, _ema, state5} = ElixirEMA.next(state4, 108.0, false)
       assert state5.lookback_count == initial_lookback
     end
   end
@@ -119,21 +122,21 @@ defmodule TheoryCraftTA.State.SMATest do
     for {backend, name} <- @backends do
       @backend backend
 
-      property "#{name}: APPEND mode matches batch SMA" do
+      property "#{name}: APPEND mode matches batch EMA" do
         check all(
                 data <- list_of(float(min: 1.0, max: 1000.0), min_length: 21, max_length: 50),
                 period <- integer(2..10)
               ) do
-          # Calculate batch SMA
-          {:ok, batch_result} = TheoryCraftTA.sma(data, period)
+          # Calculate batch EMA
+          {:ok, batch_result} = TheoryCraftTA.ema(data, period)
 
           # Calculate with state (APPEND only - each value = new bar)
           {:ok, state} = @backend.init(period)
 
           {_final_state, incremental_results} =
             Enum.reduce(data, {state, []}, fn value, {st, results} ->
-              {:ok, sma_value, new_state} = @backend.next(st, value, true)
-              {new_state, [sma_value | results]}
+              {:ok, ema_value, new_state} = @backend.next(st, value, true)
+              {new_state, [ema_value | results]}
             end)
 
           incremental_results = Enum.reverse(incremental_results)
@@ -161,7 +164,7 @@ defmodule TheoryCraftTA.State.SMATest do
     for {backend, name} <- @backends do
       @backend backend
 
-      property "#{name}: UPDATE recalculates with replaced last value" do
+      property "#{name}: UPDATE recalculates without affecting lookback" do
         check all(
                 data <- list_of(float(min: 1.0, max: 1000.0), min_length: 15, max_length: 30),
                 period <- integer(2..8),
@@ -173,25 +176,25 @@ defmodule TheoryCraftTA.State.SMATest do
           # Build state with N bars
           {final_state, _results} =
             Enum.reduce(Enum.take(data, period + 3), {state, []}, fn value, {st, results} ->
-              {:ok, sma_value, new_state} = @backend.next(st, value, true)
-              {new_state, [sma_value | results]}
+              {:ok, ema_value, new_state} = @backend.next(st, value, true)
+              {new_state, [ema_value | results]}
             end)
 
           # Apply multiple UPDATE operations
-          {updated_state, update_smas} =
-            Enum.reduce(update_values, {final_state, []}, fn value, {st, smas} ->
-              {:ok, sma, new_st} = @backend.next(st, value, false)
-              {new_st, [sma | smas]}
+          {updated_state, update_emas} =
+            Enum.reduce(update_values, {final_state, []}, fn value, {st, emas} ->
+              {:ok, ema, new_st} = @backend.next(st, value, false)
+              {new_st, [ema | emas]}
             end)
 
           # For Elixir backend, verify lookback didn't change
-          if @backend == ElixirSMA do
+          if @backend == ElixirEMA do
             assert updated_state.lookback_count == final_state.lookback_count
           end
 
-          # All SMA values should be different (unless values are identical)
-          unique_smas = Enum.uniq(update_smas)
-          assert length(unique_smas) >= 1
+          # All EMA values should be different (unless values are identical)
+          unique_emas = Enum.uniq(update_emas)
+          assert length(unique_emas) >= 1
         end
       end
     end

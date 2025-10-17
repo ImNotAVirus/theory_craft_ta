@@ -1,4 +1,4 @@
-defmodule TheoryCraftTA.Native.State.EMA do
+defmodule TheoryCraftTA.Native.OverlapState.EMA do
   @moduledoc """
   Native (Rust NIF) implementation of stateful EMA calculation.
 
@@ -11,16 +11,16 @@ defmodule TheoryCraftTA.Native.State.EMA do
   ## Usage
 
       # Initialize state (returns ResourceArc reference)
-      {:ok, state} = TheoryCraftTA.Native.State.EMA.init(14)
+      {:ok, state} = TheoryCraftTA.Native.OverlapState.EMA.init(14)
 
       # Process first bar
-      {:ok, ema1, state2} = TheoryCraftTA.Native.State.EMA.next(state, 100.0, true)
+      {:ok, ema1, state2} = TheoryCraftTA.Native.OverlapState.EMA.next(state, 100.0, true)
 
       # Process second bar
-      {:ok, ema2, state3} = TheoryCraftTA.Native.State.EMA.next(state2, 110.0, true)
+      {:ok, ema2, state3} = TheoryCraftTA.Native.OverlapState.EMA.next(state2, 110.0, true)
 
       # Update same bar (multiple ticks)
-      {:ok, ema3, state4} = TheoryCraftTA.Native.State.EMA.next(state3, 105.0, false)
+      {:ok, ema3, state4} = TheoryCraftTA.Native.OverlapState.EMA.next(state3, 105.0, false)
 
   """
 
@@ -45,7 +45,7 @@ defmodule TheoryCraftTA.Native.State.EMA do
 
   ## Examples
 
-      iex> {:ok, _state} = TheoryCraftTA.Native.State.EMA.init(14)
+      iex> {:ok, _state} = TheoryCraftTA.Native.OverlapState.EMA.init(14)
 
   """
   @spec init(pos_integer()) :: {:ok, t()} | {:error, String.t()}
@@ -80,9 +80,11 @@ defmodule TheoryCraftTA.Native.State.EMA do
 
   ## Examples
 
-      iex> {:ok, state} = TheoryCraftTA.Native.State.EMA.init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.Native.State.EMA.next(state, 100.0, true)
-      iex> {:ok, ema, _state3} = TheoryCraftTA.Native.State.EMA.next(state2, 110.0, true)
+      iex> {:ok, state} = TheoryCraftTA.Native.OverlapState.EMA.init(2)
+      iex> {:ok, ema, state2} = TheoryCraftTA.Native.OverlapState.EMA.next(state, 100.0, true)
+      iex> ema
+      nil
+      iex> {:ok, ema, _state3} = TheoryCraftTA.Native.OverlapState.EMA.next(state2, 110.0, true)
       iex> ema
       105.0
 

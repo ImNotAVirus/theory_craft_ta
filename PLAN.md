@@ -116,7 +116,7 @@ pub struct EMAState {
 Fichier: `lib/theory_craft_ta/elixir/state/ema.ex`
 
 ```elixir
-defmodule TheoryCraftTA.Elixir.State.EMA do
+defmodule TheoryCraftTA.Elixir.OverlapState.EMA do
   @moduledoc false
 
   defstruct [:period, :k, :current_ema, :lookback_count]
@@ -166,7 +166,7 @@ end
 Fichier: `lib/theory_craft_ta/native/state/ema.ex`
 
 ```elixir
-defmodule TheoryCraftTA.Native.State.EMA do
+defmodule TheoryCraftTA.Native.OverlapState.EMA do
   @moduledoc false
 
   defstruct [:ref, :period]
@@ -262,7 +262,7 @@ defmodule MyIndicators.EMA do
 
   # Utiliser le backend configuré
   @backend Application.compile_env(:theory_craft_ta, :default_backend)
-  @state_module Module.concat(@backend, State.EMA)
+  @state_module Module.concat(@backend, OverlapState.EMA)
 
   @impl true
   def loopback(), do: 0  # Pas d'historique nécessaire
@@ -291,7 +291,7 @@ defmodule MyIndicators.EMAOnTicks do
   @behaviour TheoryCraft.Indicator
 
   @backend Application.compile_env(:theory_craft_ta, :default_backend)
-  @state_module Module.concat(@backend, State.EMA)
+  @state_module Module.concat(@backend, OverlapState.EMA)
 
   @impl true
   def loopback(), do: 0

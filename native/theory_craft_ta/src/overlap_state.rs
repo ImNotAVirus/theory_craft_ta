@@ -16,6 +16,13 @@ pub struct SMAState {
     lookback_count: i32,
 }
 
+/// State for WMA calculation
+pub struct WMAState {
+    period: i32,
+    buffer: Vec<f64>,
+    lookback_count: i32,
+}
+
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_ema_state_init(env: Env, period: i32) -> NifResult<Term> {
@@ -176,6 +183,93 @@ pub fn overlap_sma_state_next(
     ok!(env, result)
 }
 
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_wma_state_init(env: Env, period: i32) -> NifResult<Term> {
+    if period < 2 {
+        return error!(env, "Invalid period: must be >= 2 for WMA");
+    }
+
+    let state = WMAState {
+        period,
+        buffer: Vec::new(),
+        lookback_count: 0,
+    };
+
+    let resource = ResourceArc::new(state);
+    ok!(env, resource)
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_wma_state_next(
+    env: Env,
+    state_arc: ResourceArc<WMAState>,
+    value: f64,
+    is_new_bar: bool,
+) -> NifResult<Term> {
+    let state = &*state_arc;
+
+    let mut new_buffer = state.buffer.clone();
+    let new_lookback = if is_new_bar {
+        state.lookback_count + 1
+    } else {
+        state.lookback_count
+    };
+
+    // Update buffer
+    if is_new_bar {
+        new_buffer.push(value);
+        if new_buffer.len() > state.period as usize {
+            new_buffer.remove(0);
+        }
+    } else {
+        // UPDATE mode: replace last value
+        if !new_buffer.is_empty() {
+            let last_idx = new_buffer.len() - 1;
+            new_buffer[last_idx] = value;
+        } else {
+            // First value in first bar
+            new_buffer.push(value);
+        }
+    }
+
+    // Warmup phase: need 'period' bars
+    if new_lookback < state.period {
+        let new_state = WMAState {
+            period: state.period,
+            buffer: new_buffer,
+            lookback_count: new_lookback,
+        };
+        let new_resource = ResourceArc::new(new_state);
+        let result = (rustler::types::atom::nil(), new_resource);
+        return ok!(env, result);
+    }
+
+    // Calculate WMA
+    // Sum of weights: 1 + 2 + ... + period = period * (period + 1) / 2
+    let sum_weights = (state.period * (state.period + 1)) as f64 / 2.0;
+
+    // Weighted sum: buffer[0] * 1 + buffer[1] * 2 + ... + buffer[period-1] * period
+    let weighted_sum: f64 = new_buffer
+        .iter()
+        .enumerate()
+        .map(|(i, &val)| val * (i + 1) as f64)
+        .sum();
+
+    let wma = weighted_sum / sum_weights;
+
+    let new_state = WMAState {
+        period: state.period,
+        buffer: new_buffer,
+        lookback_count: new_lookback,
+    };
+
+    let new_resource = ResourceArc::new(new_state);
+    let result = (wma, new_resource);
+    ok!(env, result)
+}
+
 // Stub implementations when ta-lib is not available
 #[cfg(not(has_talib))]
 #[rustler::nif]
@@ -212,6 +306,29 @@ pub fn overlap_sma_state_init(env: Env, _period: i32) -> NifResult<Term> {
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_sma_state_next(
+    env: Env,
+    _state: Term,
+    _value: f64,
+    _is_new_bar: bool,
+) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_wma_state_init(env: Env, _period: i32) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_wma_state_next(
     env: Env,
     _state: Term,
     _value: f64,
