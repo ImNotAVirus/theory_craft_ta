@@ -20,7 +20,9 @@ defmodule TheoryCraftTA.Helpers do
 
   ## Returns
     - A list of values in oldest-first order
+
   """
+  @spec to_list_and_reverse(TheoryCraftTA.source()) :: list(float() | nil)
   def to_list_and_reverse(%DataSeries{} = ds) do
     ds |> DataSeries.values() |> Enum.reverse()
   end
@@ -43,25 +45,20 @@ defmodule TheoryCraftTA.Helpers do
 
   ## Returns
     - The same type as `original` with the new values
+
   """
-  def rebuild_same_type(%DataSeries{max_size: max_size}, result_list) do
-    # result_list is oldest-first, DataSeries.add prepends (newest-first)
-    # So we iterate oldest-first, and each add will build newest-first ordering
-    Enum.reduce(result_list, DataSeries.new(max_size: max_size), fn val, ds ->
-      DataSeries.add(ds, val)
-    end)
+  @spec rebuild_same_type(TheoryCraftTA.source(), list(float() | nil)) ::
+          TheoryCraftTA.source()
+  def rebuild_same_type(%DataSeries{} = original, result_list) do
+    # result_list is oldest-first, DataSeries stores newest-first
+    %DataSeries{original | data: Enum.reverse(result_list)}
   end
 
-  def rebuild_same_type(%TimeSeries{} = ts, result_list) do
-    # TimeSeries.keys() returns newest-first, but TimeSeries.add requires oldest-first
-    # result_list is oldest-first, so we need to reverse both to match and then add in correct order
-    keys = ts |> TimeSeries.keys() |> Enum.reverse()
+  def rebuild_same_type(%TimeSeries{data: data_series} = original, result_list) do
+    # result_list is oldest-first, TimeSeries stores newest-first
+    updated_data_series = %DataSeries{data_series | data: Enum.reverse(result_list)}
 
-    keys
-    |> Enum.zip(result_list)
-    |> Enum.reduce(TimeSeries.new(), fn {datetime, value}, acc ->
-      TimeSeries.add(acc, datetime, value)
-    end)
+    %TimeSeries{original | data: updated_data_series}
   end
 
   def rebuild_same_type(_list, result_list) when is_list(result_list) do

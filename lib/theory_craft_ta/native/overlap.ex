@@ -5,6 +5,7 @@ defmodule TheoryCraftTA.Native.Overlap do
   Overlap indicators include: SMA, EMA, BBANDS, etc.
   """
 
+  alias TheoryCraft.{DataSeries, TimeSeries}
   alias TheoryCraftTA.{Native, Helpers}
 
   ## Public API
@@ -27,7 +28,7 @@ defmodule TheoryCraftTA.Native.Overlap do
       {:ok, [nil, nil, 2.0, 3.0, 4.0]}
 
   """
-  @spec sma(TheoryCraftTA.source(), integer()) ::
+  @spec sma(TheoryCraftTA.source(), pos_integer()) ::
           {:ok, TheoryCraftTA.source()} | {:error, String.t()}
   def sma(data, period) do
     list_data = Helpers.to_list_and_reverse(data)
@@ -61,18 +62,67 @@ defmodule TheoryCraftTA.Native.Overlap do
       {:ok, [nil, 1.5, 2.5, 3.5, 4.5]}
 
   """
-  @spec sma_next(TheoryCraftTA.source(), integer(), TheoryCraftTA.source()) ::
+  @spec sma_next(TheoryCraftTA.source(), pos_integer(), TheoryCraftTA.source()) ::
           {:ok, TheoryCraftTA.source()} | {:error, String.t()}
   def sma_next(data, period, prev) do
     list_data = Helpers.to_list_and_reverse(data)
     prev_list = Helpers.to_list_and_reverse(prev)
 
     case Native.overlap_sma_next(list_data, period, prev_list) do
-      {:ok, result_list} ->
-        {:ok, Helpers.rebuild_same_type(data, result_list)}
+      {:ok, {:create, new_value}} ->
+        {:ok, apply_create(data, prev, new_value)}
+
+      {:ok, {:update, new_value}} ->
+        {:ok, apply_update(prev, new_value)}
 
       {:error, _reason} = error ->
         error
     end
+  end
+
+  ## Private functions
+
+  # DataSeries stores data newest-first, so prepend for create
+  defp apply_create(%DataSeries{}, %DataSeries{data: prev_data} = prev, new_value) do
+    %DataSeries{prev | data: [new_value | prev_data]}
+  end
+
+  # TimeSeries: extract datetime from data and prepend to both data and dt
+  defp apply_create(
+         %TimeSeries{} = data_ts,
+         %TimeSeries{data: prev_data_series, dt: prev_dt} = prev,
+         new_value
+       ) do
+    [new_datetime | _] = TimeSeries.keys(data_ts)
+
+    updated_data_series =
+      %DataSeries{
+        prev_data_series
+        | data: [new_value | prev_data_series.data]
+      }
+
+    %TimeSeries{prev | data: updated_data_series, dt: [new_datetime | prev_dt]}
+  end
+
+  defp apply_create(_data, prev_list, new_value) when is_list(prev_list) do
+    prev_list ++ [new_value]
+  end
+
+  # DataSeries: replace first element (newest) with new value
+  defp apply_update(%DataSeries{data: [_old | rest]} = prev, new_value) do
+    %DataSeries{prev | data: [new_value | rest]}
+  end
+
+  # TimeSeries: only update the data, dt remains the same
+  defp apply_update(%TimeSeries{data: prev_data_series} = prev, new_value) do
+    %DataSeries{data: [_old | rest]} = prev_data_series
+    updated_data_series = %DataSeries{prev_data_series | data: [new_value | rest]}
+
+    %TimeSeries{prev | data: updated_data_series}
+  end
+
+  # List: replace last element
+  defp apply_update(prev_list, new_value) when is_list(prev_list) do
+    List.replace_at(prev_list, -1, new_value)
   end
 end

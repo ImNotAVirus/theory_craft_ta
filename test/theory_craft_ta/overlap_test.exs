@@ -33,21 +33,39 @@ defmodule TheoryCraftTA.OverlapTest do
         data = [1.0, 2.0, 3.0]
         # Python raises with error code 2 (BadParam)
         assert {:error, reason} = @backend_module.sma(data, 1)
-        assert reason =~ "Invalid period: must be >= 2 for SMA"
+
+        # Different error messages per backend
+        if unquote(backend_name) == :native do
+          assert reason =~ "Invalid parameters"
+        else
+          assert reason =~ "Invalid period: must be >= 2 for SMA"
+        end
       end
 
       test "raises for period=0" do
         data = [1.0, 2.0, 3.0]
         # Python raises with error code 2 (BadParam)
         assert {:error, reason} = @backend_module.sma(data, 0)
-        assert reason =~ "Invalid period: must be >= 2 for SMA"
+
+        # Different error messages per backend
+        if unquote(backend_name) == :native do
+          assert reason =~ "Invalid parameters"
+        else
+          assert reason =~ "Invalid period: must be >= 2 for SMA"
+        end
       end
 
       test "raises for negative period" do
         data = [1.0, 2.0, 3.0]
         # Python raises with error code 2 (BadParam)
         assert {:error, reason} = @backend_module.sma(data, -1)
-        assert reason =~ "Invalid period: must be >= 2 for SMA"
+
+        # Different error messages per backend
+        if unquote(backend_name) == :native do
+          assert reason =~ "Invalid parameters"
+        else
+          assert reason =~ "Invalid period: must be >= 2 for SMA"
+        end
       end
 
       if backend_name == :elixir do
@@ -247,7 +265,8 @@ defmodule TheoryCraftTA.OverlapTest do
     test "raises RuntimeError on invalid period (< 2)" do
       data = [1.0, 2.0, 3.0]
       # TA-Lib requires period >= 2 for SMA
-      assert_raise RuntimeError, ~r/SMA error:.*Invalid period: must be >= 2 for SMA/, fn ->
+      # Error message depends on configured backend
+      assert_raise RuntimeError, ~r/SMA error/, fn ->
         TheoryCraftTA.sma!(data, 1)
       end
     end

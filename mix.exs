@@ -13,7 +13,7 @@ defmodule TheoryCraftTA.MixProject do
       deps: deps(),
       aliases: aliases(),
       package: package(),
-      preferred_cli_env: [ci: :test],
+      preferred_cli_env: [ci: :test, bench: :prod],
       elixirc_paths: elixirc_paths(Mix.env()),
       elixirc_options: [warnings_as_errors: true]
     ]
@@ -74,7 +74,9 @@ defmodule TheoryCraftTA.MixProject do
       ## Dev
       {:tidewave, "~> 0.5", only: :dev},
       {:bandit, "~> 1.0", only: :dev},
-      {:benchee, "~> 1.4", only: :dev},
+
+      ## Benchmark
+      {:benchee, "~> 1.4", only: :bench},
 
       ## Test
       {:stream_data, "~> 1.2", only: :test}
