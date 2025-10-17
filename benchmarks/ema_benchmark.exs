@@ -40,12 +40,12 @@ IO.puts("\n=== Small Dataset (100 items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.sma(small_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.sma(small_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.sma(small_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.sma(small_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.sma(small_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.sma(small_ts, 10) end
+    "Native List" => fn -> NativeTA.ema(small_data, 10) end,
+    "Elixir List" => fn -> ElixirTA.ema(small_data, 10) end,
+    "Native DataSeries" => fn -> NativeTA.ema(small_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirTA.ema(small_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeTA.ema(small_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirTA.ema(small_ts, 10) end
   },
   warmup: 2,
   time: 5,
@@ -57,12 +57,12 @@ IO.puts("\n=== Medium Dataset (1K items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.sma(medium_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.sma(medium_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.sma(medium_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.sma(medium_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.sma(medium_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.sma(medium_ts, 10) end
+    "Native List" => fn -> NativeTA.ema(medium_data, 10) end,
+    "Elixir List" => fn -> ElixirTA.ema(medium_data, 10) end,
+    "Native DataSeries" => fn -> NativeTA.ema(medium_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirTA.ema(medium_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeTA.ema(medium_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirTA.ema(medium_ts, 10) end
   },
   warmup: 2,
   time: 5,
@@ -74,12 +74,12 @@ IO.puts("\n=== Large Dataset (10K items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.sma(large_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.sma(large_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.sma(large_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.sma(large_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.sma(large_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.sma(large_ts, 10) end
+    "Native List" => fn -> NativeTA.ema(large_data, 10) end,
+    "Elixir List" => fn -> ElixirTA.ema(large_data, 10) end,
+    "Native DataSeries" => fn -> NativeTA.ema(large_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirTA.ema(large_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeTA.ema(large_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirTA.ema(large_ts, 10) end
   },
   warmup: 2,
   time: 5,

@@ -31,8 +31,15 @@ defmodule TheoryCraftTA.Native do
 
   ## NIF stubs
 
+  # Batch functions
   def overlap_sma(_data, _period), do: error()
-  def overlap_sma_next(_data, _period, _prev), do: error()
+  def overlap_ema(_data, _period), do: error()
+
+  # State-based functions
+  def overlap_sma_state_init(_period), do: error()
+  def overlap_sma_state_next(_state, _value, _is_new_bar), do: error()
+  def overlap_ema_state_init(_period), do: error()
+  def overlap_ema_state_next(_state, _value, _is_new_bar), do: error()
 
   ## Private functions
 

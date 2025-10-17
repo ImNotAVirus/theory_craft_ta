@@ -104,61 +104,291 @@ defmodule TheoryCraftTA do
   end
 
   @doc """
-  Incremental SMA calculation.
+  Exponential Moving Average.
 
-  When streaming data, this function efficiently calculates the next SMA value
-  without reprocessing the entire dataset.
-
-  ## Behavior
-    - If input size == prev size: Updates last value (same bar, multiple ticks)
-    - If input size == prev size + 1: Adds new value (new bar)
+  Calculates the exponential moving average of the input data over the specified period.
+  EMA applies more weight to recent values using an exponential decay factor.
 
   ## Parameters
-    - `data` - Input data (must have one more element than prev, or same length)
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
     - `period` - Number of periods for the moving average (must be an integer >= 2)
-    - `prev` - Previous SMA result
 
   ## Returns
-    - `{:ok, result}` with updated SMA values
-    - `{:error, reason}` if validation fails
+    - `{:ok, result}` where result is the same type as input with EMA values
+    - `{:error, reason}` if validation fails or calculation error occurs
 
   ## Examples
-      iex> TheoryCraftTA.sma_next([1.0, 2.0, 3.0, 4.0, 5.0], 2, [nil, 1.5, 2.5, 3.5])
-      {:ok, [nil, 1.5, 2.5, 3.5, 4.5]}
-
-      iex> TheoryCraftTA.sma_next([1.0, 2.0, 3.0, 4.0, 5.5], 2, [nil, 1.5, 2.5, 3.5, 4.5])
-      {:ok, [nil, 1.5, 2.5, 3.5, 4.75]}
+      iex> TheoryCraftTA.ema([1.0, 2.0, 3.0, 4.0, 5.0], 3)
+      {:ok, [nil, nil, 2.0, 3.0, 4.0]}
 
   """
-  @spec sma_next(source(), pos_integer(), source()) :: {:ok, source()} | {:error, String.t()}
-  defdelegate sma_next(data, period, prev), to: Module.concat(@backend, Overlap)
+  @spec ema(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
+  defdelegate ema(data, period), to: Module.concat(@backend, Overlap)
 
   @doc """
-  Incremental SMA calculation - Bang version.
+  Exponential Moving Average - Bang version.
 
-  Same as `sma_next/3` but raises an exception instead of returning an error tuple.
+  Same as `ema/2` but raises an exception instead of returning an error tuple.
 
   ## Parameters
-    - `data` - Input data (must have one more element than prev, or same length)
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
     - `period` - Number of periods for the moving average (must be an integer >= 2)
-    - `prev` - Previous SMA result
 
   ## Returns
-    - Result with updated SMA values
+    - Result of the same type as input with EMA values
 
   ## Raises
     - `RuntimeError` if validation fails or calculation error occurs
+    - `FunctionClauseError` if period is not an integer
 
   ## Examples
-      iex> TheoryCraftTA.sma_next!([1.0, 2.0, 3.0, 4.0, 5.0], 2, [nil, 1.5, 2.5, 3.5])
-      [nil, 1.5, 2.5, 3.5, 4.5]
+      iex> TheoryCraftTA.ema!([1.0, 2.0, 3.0, 4.0, 5.0], 3)
+      [nil, nil, 2.0, 3.0, 4.0]
 
   """
-  @spec sma_next!(source(), pos_integer(), source()) :: source()
-  def sma_next!(data, period, prev) do
-    case sma_next(data, period, prev) do
+  @spec ema!(source(), pos_integer()) :: source()
+  def ema!(data, period) do
+    case ema(data, period) do
       {:ok, result} -> result
-      {:error, reason} -> raise "SMA_next error: #{reason}"
+      {:error, reason} -> raise "EMA error: #{reason}"
+    end
+  end
+
+  ## State-based Indicators
+
+  @doc """
+  Initialize SMA state for incremental calculations.
+
+  Creates a new SMA state that can be updated incrementally with each new value.
+  This is useful for streaming data where you want to calculate the SMA as new
+  data arrives without recalculating the entire window.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, state}` - Initial state for SMA calculations
+    - `{:error, reason}` - If validation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.sma_state_init(3)
+      iex> is_reference(state)
+      true
+
+  """
+  @spec sma_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
+  defdelegate sma_state_init(period), to: Module.concat([@backend, State, SMA]), as: :init
+
+  @doc """
+  Initialize SMA state for incremental calculations - Bang version.
+
+  Same as `sma_state_init/1` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `state` - Initial state for SMA calculations
+
+  ## Raises
+    - `RuntimeError` if validation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.sma_state_init!(3)
+      iex> is_reference(state)
+      true
+
+  """
+  @spec sma_state_init!(pos_integer()) :: term()
+  def sma_state_init!(period) do
+    unwrap_init!(sma_state_init(period), "SMA")
+  end
+
+  @doc """
+  Process next value with SMA state.
+
+  Updates the SMA state with a new value and returns the current SMA value.
+  Supports two modes:
+  - APPEND mode (`is_new_bar = true`): Adds a new value to the window
+  - UPDATE mode (`is_new_bar = false`): Updates the last value in the window
+
+  ## Parameters
+    - `state` - Current SMA state (from `sma_state_init/1` or previous `sma_state_next/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{:ok, sma_value, new_state}` - The SMA value (or nil during warmup) and updated state
+    - `{:error, reason}` - If calculation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.sma_state_init(3)
+      iex> {:ok, nil, state2} = TheoryCraftTA.sma_state_next(state, 100.0, true)
+      iex> {:ok, nil, state3} = TheoryCraftTA.sma_state_next(state2, 110.0, true)
+      iex> {:ok, sma, _state4} = TheoryCraftTA.sma_state_next(state3, 120.0, true)
+      iex> sma
+      110.0
+
+  """
+  @spec sma_state_next(term(), float(), boolean()) ::
+          {:ok, float() | nil, term()} | {:error, String.t()}
+  defdelegate sma_state_next(state, value, is_new_bar),
+    to: Module.concat([@backend, State, SMA]),
+    as: :next
+
+  @doc """
+  Process next value with SMA state - Bang version.
+
+  Same as `sma_state_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `state` - Current SMA state (from `sma_state_init!/1` or previous `sma_state_next!/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{sma_value, new_state}` - The SMA value (or nil during warmup) and updated state
+
+  ## Raises
+    - `RuntimeError` if calculation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.sma_state_init!(3)
+      iex> {nil, state2} = TheoryCraftTA.sma_state_next!(state, 100.0, true)
+      iex> {nil, state3} = TheoryCraftTA.sma_state_next!(state2, 110.0, true)
+      iex> {sma, _state4} = TheoryCraftTA.sma_state_next!(state3, 120.0, true)
+      iex> sma
+      110.0
+
+  """
+  @spec sma_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def sma_state_next!(state, value, is_new_bar) do
+    unwrap_next!(sma_state_next(state, value, is_new_bar), "SMA")
+  end
+
+  @doc """
+  Initialize EMA state for incremental calculations.
+
+  Creates a new EMA state that can be updated incrementally with each new value.
+  This is useful for streaming data where you want to calculate the EMA as new
+  data arrives without recalculating the entire window.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, state}` - Initial state for EMA calculations
+    - `{:error, reason}` - If validation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.ema_state_init(3)
+      iex> is_reference(state)
+      true
+
+  """
+  @spec ema_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
+  defdelegate ema_state_init(period), to: Module.concat([@backend, State, EMA]), as: :init
+
+  @doc """
+  Initialize EMA state for incremental calculations - Bang version.
+
+  Same as `ema_state_init/1` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `state` - Initial state for EMA calculations
+
+  ## Raises
+    - `RuntimeError` if validation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.ema_state_init!(3)
+      iex> is_reference(state)
+      true
+
+  """
+  @spec ema_state_init!(pos_integer()) :: term()
+  def ema_state_init!(period) do
+    unwrap_init!(ema_state_init(period), "EMA")
+  end
+
+  @doc """
+  Process next value with EMA state.
+
+  Updates the EMA state with a new value and returns the current EMA value.
+  Supports two modes:
+  - APPEND mode (`is_new_bar = true`): Adds a new value to the window
+  - UPDATE mode (`is_new_bar = false`): Recalculates EMA with updated last value
+
+  The first EMA value is seeded using the SMA of the accumulated buffer values.
+
+  ## Parameters
+    - `state` - Current EMA state (from `ema_state_init/1` or previous `ema_state_next/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{:ok, ema_value, new_state}` - The EMA value (or nil during warmup) and updated state
+    - `{:error, reason}` - If calculation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.ema_state_init(2)
+      iex> {:ok, nil, state2} = TheoryCraftTA.ema_state_next(state, 100.0, true)
+      iex> {:ok, ema, _state3} = TheoryCraftTA.ema_state_next(state2, 110.0, true)
+      iex> ema
+      105.0
+
+  """
+  @spec ema_state_next(term(), float(), boolean()) ::
+          {:ok, float() | nil, term()} | {:error, String.t()}
+  defdelegate ema_state_next(state, value, is_new_bar),
+    to: Module.concat([@backend, State, EMA]),
+    as: :next
+
+  @doc """
+  Process next value with EMA state - Bang version.
+
+  Same as `ema_state_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `state` - Current EMA state (from `ema_state_init!/1` or previous `ema_state_next!/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{ema_value, new_state}` - The EMA value (or nil during warmup) and updated state
+
+  ## Raises
+    - `RuntimeError` if calculation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.ema_state_init!(2)
+      iex> {nil, state2} = TheoryCraftTA.ema_state_next!(state, 100.0, true)
+      iex> {ema, _state3} = TheoryCraftTA.ema_state_next!(state2, 110.0, true)
+      iex> ema
+      105.0
+
+  """
+  @spec ema_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def ema_state_next!(state, value, is_new_bar) do
+    unwrap_next!(ema_state_next(state, value, is_new_bar), "EMA")
+  end
+
+  ## Private functions
+
+  defp unwrap_init!(result, indicator_name) do
+    case result do
+      {:ok, state} -> state
+      {:error, reason} -> raise "#{indicator_name} state init error: #{reason}"
+    end
+  end
+
+  defp unwrap_next!(result, indicator_name) do
+    case result do
+      {:ok, value, new_state} -> {value, new_state}
+      {:error, reason} -> raise "#{indicator_name} state next error: #{reason}"
     end
   end
 end

@@ -1,3 +1,5 @@
+use rustler::{Env, Term};
+
 // Common atoms used across all modules
 mod atoms {
     rustler::atoms! {
@@ -13,5 +15,13 @@ mod overlap_ffi;
 mod helpers;
 
 mod overlap;
+mod overlap_state;
 
-rustler::init!("Elixir.TheoryCraftTA.Native");
+rustler::init!("Elixir.TheoryCraftTA.Native", load = load);
+
+#[allow(non_local_definitions)]
+fn load(env: Env, _: Term) -> bool {
+    let _ = rustler::resource!(overlap_state::SMAState, env);
+    let _ = rustler::resource!(overlap_state::EMAState, env);
+    true
+}

@@ -302,47 +302,138 @@ defmodule TheoryCraftTA.OverlapTest do
     end
   end
 
-  ## Tests for sma_next (incremental calculation)
+  ## Tests for EMA (Exponential Moving Average)
 
   for {backend_name, backend_module} <- @backends do
     @backend_module backend_module
 
-    describe "#{backend_name} - sma_next/3 with list input" do
-      test "appends new value when input size is prev size + 1" do
-        input = [1.0, 2.0, 3.0, 4.0, 5.0]
-        prev = [nil, 1.5, 2.5, 3.5]
+    describe "#{backend_name} - ema/2 with list input" do
+      test "calculates correctly with period=3" do
+        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        # Python result: [nan nan 2. 3. 4.]
+        assert {:ok, result} = @backend_module.ema(data, 3)
 
-        assert {:ok, result} = @backend_module.sma_next(input, 2, prev)
-        assert result == [nil, 1.5, 2.5, 3.5, 4.5]
+        assert Enum.at(result, 0) == nil
+        assert Enum.at(result, 1) == nil
+        assert_in_delta Enum.at(result, 2), 2.0, 0.001
+        assert_in_delta Enum.at(result, 3), 3.0, 0.001
+        assert_in_delta Enum.at(result, 4), 4.0, 0.001
       end
 
-      test "updates last value when input size equals prev size" do
-        input = [1.0, 2.0, 3.0, 4.0, 5.5]
-        prev = [nil, 1.5, 2.5, 3.5, 4.5]
+      test "handles period=2 (minimum valid)" do
+        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        # Python result: [nan 1.5 2.5 3.5 4.5]
+        assert {:ok, result} = @backend_module.ema(data, 2)
 
-        assert {:ok, result} = @backend_module.sma_next(input, 2, prev)
-        assert result == [nil, 1.5, 2.5, 3.5, 4.75]
+        assert Enum.at(result, 0) == nil
+        assert_in_delta Enum.at(result, 1), 1.5, 0.001
+        assert_in_delta Enum.at(result, 2), 2.5, 0.001
+        assert_in_delta Enum.at(result, 3), 3.5, 0.001
+        assert_in_delta Enum.at(result, 4), 4.5, 0.001
       end
 
-      test "updates nil value when insufficient data" do
-        input = [1.0, 2.0]
-        prev = [nil]
+      test "raises for period=1" do
+        data = [1.0, 2.0, 3.0]
+        # Python raises with error code 2 (BadParam)
+        assert {:error, reason} = @backend_module.ema(data, 1)
 
-        assert {:ok, result} = @backend_module.sma_next(input, 5, prev)
+        # Different error messages per backend
+        if unquote(backend_name) == :native do
+          assert reason =~ "Invalid parameters"
+        else
+          assert reason =~ "Invalid period: must be >= 2 for EMA"
+        end
+      end
+
+      test "raises for period=0" do
+        data = [1.0, 2.0, 3.0]
+        # Python raises with error code 2 (BadParam)
+        assert {:error, reason} = @backend_module.ema(data, 0)
+
+        # Different error messages per backend
+        if unquote(backend_name) == :native do
+          assert reason =~ "Invalid parameters"
+        else
+          assert reason =~ "Invalid period: must be >= 2 for EMA"
+        end
+      end
+
+      test "raises for negative period" do
+        data = [1.0, 2.0, 3.0]
+        # Python raises with error code 2 (BadParam)
+        assert {:error, reason} = @backend_module.ema(data, -1)
+
+        # Different error messages per backend
+        if unquote(backend_name) == :native do
+          assert reason =~ "Invalid parameters"
+        else
+          assert reason =~ "Invalid period: must be >= 2 for EMA"
+        end
+      end
+
+      if backend_name == :elixir do
+        test "raises FunctionClauseError for float period" do
+          data = [1.0, 2.0, 3.0]
+          # Elixir backend: FunctionClauseError (no guards)
+          assert_raise FunctionClauseError, fn ->
+            @backend_module.ema(data, 2.5)
+          end
+        end
+      else
+        test "raises ArgumentError for float period" do
+          data = [1.0, 2.0, 3.0]
+          # Native backend: ArgumentError (Rustler type conversion)
+          assert_raise ArgumentError, fn ->
+            @backend_module.ema(data, 2.5)
+          end
+        end
+      end
+
+      test "returns empty for empty input" do
+        # Python result: []
+        assert {:ok, []} = @backend_module.ema([], 3)
+      end
+
+      test "handles insufficient data (period > data length)" do
+        data = [1.0, 2.0]
+        # Python with period=5: [nan nan]
+        assert {:ok, result} = @backend_module.ema(data, 5)
         assert result == [nil, nil]
       end
 
-      test "returns error when input size is more than prev size + 1" do
-        input = [1.0, 2.0, 3.0, 4.0, 5.0]
-        prev = [nil, 1.5]
+      test "handles period equal to data length" do
+        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        # Python result: [nan nan nan nan 3.]
+        assert {:ok, result} = @backend_module.ema(data, 5)
 
-        assert {:error, reason} = @backend_module.sma_next(input, 2, prev)
-        assert reason =~ "Input size must be equal to or one more than prev size"
+        assert Enum.at(result, 0) == nil
+        assert Enum.at(result, 1) == nil
+        assert Enum.at(result, 2) == nil
+        assert Enum.at(result, 3) == nil
+        assert_in_delta Enum.at(result, 4), 3.0, 0.001
+      end
+
+      test "calculates correctly for extended test data" do
+        data = [1.0, 5.0, 3.0, 4.0, 7.0, 3.0, 8.0, 1.0, 4.0, 6.0]
+
+        # Python result with period=2: [nan 3.0 3.0 3.666667 5.888889 3.962963 6.654321 2.884774 3.628258 5.209419]
+        assert {:ok, result} = @backend_module.ema(data, 2)
+
+        assert Enum.at(result, 0) == nil
+        assert_in_delta Enum.at(result, 1), 3.0, 0.001
+        assert_in_delta Enum.at(result, 2), 3.0, 0.001
+        assert_in_delta Enum.at(result, 3), 3.666667, 0.001
+        assert_in_delta Enum.at(result, 4), 5.888889, 0.001
+        assert_in_delta Enum.at(result, 5), 3.962963, 0.001
+        assert_in_delta Enum.at(result, 6), 6.654321, 0.001
+        assert_in_delta Enum.at(result, 7), 2.884774, 0.001
+        assert_in_delta Enum.at(result, 8), 3.628258, 0.001
+        assert_in_delta Enum.at(result, 9), 5.209419, 0.001
       end
     end
 
-    describe "#{backend_name} - sma_next/3 with DataSeries input" do
-      test "appends new value" do
+    describe "#{backend_name} - ema/2 with DataSeries input" do
+      test "returns DataSeries with EMA values in newest-first order" do
         ds =
           DataSeries.new()
           |> DataSeries.add(1.0)
@@ -351,43 +442,44 @@ defmodule TheoryCraftTA.OverlapTest do
           |> DataSeries.add(4.0)
           |> DataSeries.add(5.0)
 
-        prev_ds =
-          DataSeries.new()
-          |> DataSeries.add(nil)
-          |> DataSeries.add(1.5)
-          |> DataSeries.add(2.5)
-          |> DataSeries.add(3.5)
-
-        assert {:ok, result_ds} = @backend_module.sma_next(ds, 2, prev_ds)
+        assert {:ok, result_ds} = @backend_module.ema(ds, 3)
         assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == [4.5, 3.5, 2.5, 1.5, nil]
+
+        values = DataSeries.values(result_ds)
+
+        # DataSeries stores newest-first: [5.0, 4.0, 3.0, 2.0, 1.0]
+        # After reversal for calculation: [1.0, 2.0, 3.0, 4.0, 5.0]
+        # EMA result (oldest-first): [nil, nil, 2.0, 3.0, 4.0]
+        # Reversed back (newest-first): [4.0, 3.0, 2.0, nil, nil]
+
+        assert_in_delta Enum.at(values, 0), 4.0, 0.001
+        assert_in_delta Enum.at(values, 1), 3.0, 0.001
+        assert_in_delta Enum.at(values, 2), 2.0, 0.001
+        assert Enum.at(values, 3) == nil
+        assert Enum.at(values, 4) == nil
       end
 
-      test "updates last value" do
-        ds =
-          DataSeries.new()
-          |> DataSeries.add(1.0)
-          |> DataSeries.add(2.0)
-          |> DataSeries.add(3.0)
-          |> DataSeries.add(4.0)
-          |> DataSeries.add(5.5)
+      test "preserves DataSeries max_size" do
+        ds = DataSeries.new(max_size: 10)
+        ds = DataSeries.add(ds, 1.0)
+        ds = DataSeries.add(ds, 2.0)
+        ds = DataSeries.add(ds, 3.0)
 
-        prev_ds =
-          DataSeries.new()
-          |> DataSeries.add(nil)
-          |> DataSeries.add(1.5)
-          |> DataSeries.add(2.5)
-          |> DataSeries.add(3.5)
-          |> DataSeries.add(4.5)
+        assert {:ok, result_ds} = @backend_module.ema(ds, 2)
+        assert %DataSeries{max_size: 10} = result_ds
+      end
 
-        assert {:ok, result_ds} = @backend_module.sma_next(ds, 2, prev_ds)
+      test "returns empty DataSeries for empty input" do
+        ds = DataSeries.new()
+        # Like Python: empty input → empty output
+        assert {:ok, result_ds} = @backend_module.ema(ds, 3)
         assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == [4.75, 3.5, 2.5, 1.5, nil]
+        assert DataSeries.values(result_ds) == []
       end
     end
 
-    describe "#{backend_name} - sma_next/3 with TimeSeries input" do
-      test "appends new value with new key" do
+    describe "#{backend_name} - ema/2 with TimeSeries input" do
+      test "returns TimeSeries with EMA values in newest-first order" do
         base_time = ~U[2024-01-01 00:00:00.000000Z]
 
         ts =
@@ -398,73 +490,47 @@ defmodule TheoryCraftTA.OverlapTest do
           |> TimeSeries.add(DateTime.add(base_time, 180, :second), 4.0)
           |> TimeSeries.add(DateTime.add(base_time, 240, :second), 5.0)
 
-        prev_ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), nil)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 1.5)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 2.5)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 3.5)
-
-        assert {:ok, result_ts} = @backend_module.sma_next(ts, 2, prev_ts)
+        assert {:ok, result_ts} = @backend_module.ema(ts, 3)
         assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == [4.5, 3.5, 2.5, 1.5, nil]
-        assert length(TimeSeries.keys(result_ts)) == 5
+
+        values = TimeSeries.values(result_ts)
+        keys = TimeSeries.keys(result_ts)
+
+        # Same calculation as DataSeries test
+        assert_in_delta Enum.at(values, 0), 4.0, 0.001
+        assert_in_delta Enum.at(values, 1), 3.0, 0.001
+        assert_in_delta Enum.at(values, 2), 2.0, 0.001
+        assert Enum.at(values, 3) == nil
+        assert Enum.at(values, 4) == nil
+
+        # Keys should be preserved
+        assert length(keys) == 5
+        assert Enum.all?(keys, &match?(%DateTime{}, &1))
       end
 
-      test "updates last value preserving keys" do
-        base_time = ~U[2024-01-01 00:00:00.000000Z]
-
+      test "preserves DateTime keys in correct order" do
         ts =
           TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), 1.0)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 2.0)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 3.0)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 4.0)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 5.5)
+          |> TimeSeries.add(~U[2024-01-01 09:00:00.000000Z], 100.0)
+          |> TimeSeries.add(~U[2024-01-01 09:01:00.000000Z], 101.0)
+          |> TimeSeries.add(~U[2024-01-01 09:02:00.000000Z], 102.0)
+          |> TimeSeries.add(~U[2024-01-01 09:03:00.000000Z], 103.0)
 
-        prev_ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), nil)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 1.5)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 2.5)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 3.5)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 4.5)
+        original_keys = TimeSeries.keys(ts)
 
-        assert {:ok, result_ts} = @backend_module.sma_next(ts, 2, prev_ts)
-        assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == [4.75, 3.5, 2.5, 1.5, nil]
-        assert length(TimeSeries.keys(result_ts)) == 5
+        assert {:ok, result_ts} = @backend_module.ema(ts, 2)
+        result_keys = TimeSeries.keys(result_ts)
+
+        # Keys should be identical
+        assert result_keys == original_keys
       end
-    end
-  end
 
-  ## Public API tests for sma_next
-
-  describe "TheoryCraftTA.sma_next/3 - public API" do
-    test "delegates to configured backend" do
-      input = [1.0, 2.0, 3.0, 4.0, 5.0]
-      prev = [nil, 1.5, 2.5, 3.5]
-
-      assert {:ok, result} = TheoryCraftTA.sma_next(input, 2, prev)
-      assert result == [nil, 1.5, 2.5, 3.5, 4.5]
-    end
-  end
-
-  describe "TheoryCraftTA.sma_next!/3 - bang version" do
-    test "returns result directly on success" do
-      input = [1.0, 2.0, 3.0, 4.0, 5.0]
-      prev = [nil, 1.5, 2.5, 3.5]
-
-      result = TheoryCraftTA.sma_next!(input, 2, prev)
-      assert result == [nil, 1.5, 2.5, 3.5, 4.5]
-    end
-
-    test "raises RuntimeError on error" do
-      input = [1.0, 2.0, 3.0, 4.0, 5.0]
-      prev = [nil, 1.5]
-
-      assert_raise RuntimeError, ~r/SMA_next error/, fn ->
-        TheoryCraftTA.sma_next!(input, 2, prev)
+      test "returns empty TimeSeries for empty input" do
+        ts = TimeSeries.new()
+        # Like Python: empty input → empty output
+        assert {:ok, result_ts} = @backend_module.ema(ts, 3)
+        assert %TimeSeries{} = result_ts
+        assert TimeSeries.values(result_ts) == []
       end
     end
   end
@@ -511,44 +577,40 @@ defmodule TheoryCraftTA.OverlapTest do
     end
   end
 
-  describe "property-based testing: Native vs Elixir backends for sma_next" do
-    property "Native and Elixir backends produce identical results for append mode" do
+  describe "property-based testing: Native vs Elixir backends for ema" do
+    property "Native and Elixir backends produce identical results for lists" do
       check all(
-              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 3, max_length: 50),
-              period <- integer(2..5)
+              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 2, max_length: 100),
+              period <- integer(2..10)
             ) do
-        prev_len = max(1, length(data) - 1)
-        prev_data = Enum.take(data, prev_len)
+        # Ensure we have enough data for the period
+        data = if length(data) < period, do: data ++ List.duplicate(50.0, period), else: data
 
-        {:ok, prev_sma_native} = TheoryCraftTA.Native.Overlap.sma(prev_data, period)
-        {:ok, prev_sma_elixir} = TheoryCraftTA.Elixir.Overlap.sma(prev_data, period)
+        # Test with Native backend directly
+        {:ok, native_result} = TheoryCraftTA.Native.Overlap.ema(data, period)
 
-        {:ok, native_result} =
-          TheoryCraftTA.Native.Overlap.sma_next(data, period, prev_sma_native)
+        # Test with Elixir backend directly
+        {:ok, elixir_result} = TheoryCraftTA.Elixir.Overlap.ema(data, period)
 
-        {:ok, elixir_result} =
-          TheoryCraftTA.Elixir.Overlap.sma_next(data, period, prev_sma_elixir)
-
+        # Results should be identical (within floating point precision)
         assert_lists_equal(native_result, elixir_result)
       end
     end
 
-    property "Native and Elixir backends produce identical results for update mode" do
+    property "Native and Elixir backends produce identical results for DataSeries" do
       check all(
-              base_data <- list_of(float(min: 1.0, max: 1000.0), min_length: 3, max_length: 50),
-              period <- integer(2..5),
-              update_val <- float(min: 1.0, max: 1000.0)
+              values <- list_of(float(min: 1.0, max: 1000.0), min_length: 5, max_length: 50),
+              period <- integer(2..5)
             ) do
-        {:ok, prev_sma_native} = TheoryCraftTA.Native.Overlap.sma(base_data, period)
-        {:ok, prev_sma_elixir} = TheoryCraftTA.Elixir.Overlap.sma(base_data, period)
+        ds = Enum.reduce(values, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
 
-        updated_data = List.replace_at(base_data, -1, update_val)
+        # Test with Native backend directly
+        {:ok, native_result_ds} = TheoryCraftTA.Native.Overlap.ema(ds, period)
+        native_result = DataSeries.values(native_result_ds)
 
-        {:ok, native_result} =
-          TheoryCraftTA.Native.Overlap.sma_next(updated_data, period, prev_sma_native)
-
-        {:ok, elixir_result} =
-          TheoryCraftTA.Elixir.Overlap.sma_next(updated_data, period, prev_sma_elixir)
+        # Test with Elixir backend directly
+        {:ok, elixir_result_ds} = TheoryCraftTA.Elixir.Overlap.ema(ds, period)
+        elixir_result = DataSeries.values(elixir_result_ds)
 
         assert_lists_equal(native_result, elixir_result)
       end
