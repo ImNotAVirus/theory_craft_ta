@@ -513,3 +513,67 @@ pub fn overlap_t3(env: Env, _data: Vec<f64>, _period: i32, _vfactor: f64) -> Nif
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
+
+// Implementation when ta-lib is available
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_ht_trendline(env: Env, data: Vec<f64>) -> NifResult<Term> {
+    use crate::overlap_ffi::{TA_HT_TRENDLINE_Lookback, TA_HT_TRENDLINE};
+
+    // Empty data → return empty (like Python)
+    if data.is_empty() {
+        return ok!(env, Vec::<Option<f64>>::new());
+    }
+
+    let data_len = data.len() as i32;
+
+    // Calculate lookback period
+    let lookback = unsafe { TA_HT_TRENDLINE_Lookback() };
+
+    // Prepare output buffers
+    let mut out_beg_idx: i32 = 0;
+    let mut out_nb_element: i32 = 0;
+    let mut out_real: Vec<f64> = vec![0.0; data_len as usize];
+
+    // Call TA_HT_TRENDLINE
+    let ret_code = unsafe {
+        TA_HT_TRENDLINE(
+            0,
+            data_len - 1,
+            data.as_ptr(),
+            &mut out_beg_idx as *mut i32,
+            &mut out_nb_element as *mut i32,
+            out_real.as_mut_ptr(),
+        )
+    };
+
+    check_ret_code!(env, ret_code, "HT_TRENDLINE");
+
+    // Build result with nil padding for lookback period
+    let mut result: Vec<Option<f64>> = Vec::with_capacity(data_len as usize);
+
+    // Lookback is 63, but can't exceed data length
+    let num_nils = std::cmp::min(lookback, data_len);
+
+    // Add nil values for lookback period
+    for _ in 0..num_nils {
+        result.push(None);
+    }
+
+    // Add calculated HT_TRENDLINE values
+    for i in 0..out_nb_element {
+        result.push(Some(out_real[i as usize]));
+    }
+
+    ok!(env, result)
+}
+
+// Stub when ta-lib is NOT available
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_ht_trendline(env: Env, _data: Vec<f64>) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
