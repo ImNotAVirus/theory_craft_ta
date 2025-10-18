@@ -421,6 +421,59 @@ defmodule TheoryCraftTA do
   end
 
   @doc """
+  Kaufman Adaptive Moving Average.
+
+  KAMA is an adaptive moving average that adjusts its sensitivity based on market volatility.
+  It uses the Efficiency Ratio (ER) to determine how directional the price movement is.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+    - `period` - Number of periods for the efficiency ratio (must be an integer >= 2, default 30)
+
+  ## Returns
+    - `{:ok, result}` where result is the same type as input with KAMA values
+    - `{:error, reason}` if validation fails or calculation error occurs
+
+  ## Examples
+      iex> {:ok, result} = TheoryCraftTA.kama([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], 5)
+      iex> Enum.map(result, fn nil -> nil; x -> Float.round(x, 2) end)
+      [nil, nil, nil, nil, nil, 5.44, 6.14, 6.96, 7.87, 8.82]
+
+  """
+  @spec kama(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
+  defdelegate kama(data, period), to: Module.concat([@backend, Overlap, KAMA])
+
+  @doc """
+  Kaufman Adaptive Moving Average - Bang version.
+
+  Same as `kama/2` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+    - `period` - Number of periods for the efficiency ratio (must be an integer >= 2, default 30)
+
+  ## Returns
+    - Result of the same type as input with KAMA values
+
+  ## Raises
+    - `RuntimeError` if validation fails or calculation error occurs
+    - `FunctionClauseError` if period is not an integer
+
+  ## Examples
+      iex> result = TheoryCraftTA.kama!([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], 5)
+      iex> Enum.map(result, fn nil -> nil; x -> Float.round(x, 2) end)
+      [nil, nil, nil, nil, nil, 5.44, 6.14, 6.96, 7.87, 8.82]
+
+  """
+  @spec kama!(source(), pos_integer()) :: source()
+  def kama!(data, period) do
+    case kama(data, period) do
+      {:ok, result} -> result
+      {:error, reason} -> raise "KAMA error: #{reason}"
+    end
+  end
+
+  @doc """
   MidPoint over period.
 
   Calculates the midpoint (average of highest and lowest values) over the specified period.
@@ -1257,6 +1310,107 @@ defmodule TheoryCraftTA do
   @spec t3_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
   def t3_state_next!(state, value, is_new_bar) do
     unwrap_next!(t3_state_next(state, value, is_new_bar), "T3")
+  end
+
+  @doc """
+  Initialize KAMA state for incremental calculations.
+
+  Creates a new KAMA state that can be updated incrementally with each new value.
+
+  ## Parameters
+    - `period` - The KAMA period (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, state}` on success
+    - `{:error, reason}` if validation fails
+
+  ## Examples
+      iex> {:ok, _state} = TheoryCraftTA.kama_state_init(10)
+
+  """
+  @spec kama_state_init(pos_integer()) ::
+          {:ok, term()} | {:error, String.t()}
+  defdelegate kama_state_init(period),
+    to: Module.concat([@backend, Overlap, KAMAState]),
+    as: :init
+
+  @doc """
+  Initialize KAMA state for incremental calculations - Bang version.
+
+  Same as `kama_state_init/1` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `period` - The KAMA period (must be an integer >= 2)
+
+  ## Returns
+    - State reference
+
+  ## Raises
+    - `RuntimeError` if validation fails
+
+  ## Examples
+      iex> _state = TheoryCraftTA.kama_state_init!(10)
+
+  """
+  @spec kama_state_init!(pos_integer()) :: term()
+  def kama_state_init!(period) do
+    unwrap_init!(kama_state_init(period), "KAMA")
+  end
+
+  @doc """
+  Calculate next KAMA value with state update.
+
+  Processes a new value and returns the calculated KAMA value along with updated state.
+
+  ## Parameters
+    - `state` - Current KAMA state (from init or previous next call)
+    - `value` - New price value
+    - `is_new_bar` - true for new bar (APPEND), false for same bar update (UPDATE)
+
+  ## Returns
+    - `{:ok, kama_value, new_state}` where kama_value is nil during warmup
+    - `{:error, reason}` on error
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.kama_state_init(5)
+      iex> {:ok, kama, _state2} = TheoryCraftTA.kama_state_next(state, 100.0, true)
+      iex> kama
+      nil
+
+  """
+  @spec kama_state_next(term(), float(), boolean()) ::
+          {:ok, float() | nil, term()} | {:error, String.t()}
+  defdelegate kama_state_next(state, value, is_new_bar),
+    to: Module.concat([@backend, Overlap, KAMAState]),
+    as: :next
+
+  @doc """
+  Calculate next KAMA value with state update - Bang version.
+
+  Same as `kama_state_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `state` - Current KAMA state (from init or previous next call)
+    - `value` - New price value
+    - `is_new_bar` - true for new bar (APPEND), false for same bar update (UPDATE)
+
+  ## Returns
+    - `{kama_value, new_state}` where kama_value is nil during warmup
+
+  ## Raises
+    - `RuntimeError` on error
+
+  ## Examples
+      iex> state = TheoryCraftTA.kama_state_init!(5)
+      iex> {kama, _state2} = TheoryCraftTA.kama_state_next!(state, 100.0, true)
+      iex> kama
+      nil
+
+  """
+  @spec kama_state_next!(term(), float(), boolean()) ::
+          {float() | nil, term()}
+  def kama_state_next!(state, value, is_new_bar) do
+    unwrap_next!(kama_state_next(state, value, is_new_bar), "KAMA")
   end
 
   @doc """

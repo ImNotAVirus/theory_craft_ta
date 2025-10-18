@@ -125,4 +125,16 @@ extern "C" {
     ) -> i32;
 
     pub fn TA_T3_Lookback(opt_in_time_period: i32, opt_in_vfactor: f64) -> i32;
+
+    pub fn TA_KAMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_KAMA_Lookback(opt_in_time_period: i32) -> i32;
 }
