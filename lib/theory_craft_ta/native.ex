@@ -58,6 +58,9 @@ defmodule TheoryCraftTA.Native do
   def overlap_t3_state_next(_state, _value, _is_new_bar), do: error()
   def overlap_midpoint_state_init(_period), do: error()
   def overlap_midpoint_state_next(_state, _value, _is_new_bar), do: error()
+  def overlap_sar(_high, _low, _acceleration, _maximum), do: error()
+  def overlap_sar_state_init(_acceleration, _maximum), do: error()
+  def overlap_sar_state_next(_state, _high, _low, _is_new_bar), do: error()
 
   ## Private functions
 
