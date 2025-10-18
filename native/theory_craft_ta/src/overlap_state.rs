@@ -1410,3 +1410,131 @@ pub fn overlap_t3_state_next(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
+
+/// State for KAMA calculation
+#[derive(Clone)]
+pub struct KAMAState {
+    period: i32,
+    buffer: Vec<f64>,
+    lookback_count: i32,
+    prev_kama: Option<f64>,
+    fastest_sc: f64,
+    slowest_sc: f64,
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_kama_state_init(env: Env, period: i32) -> NifResult<Term> {
+    if period < 2 {
+        return error!(env, "Invalid period: must be >= 2 for KAMA");
+    }
+
+    // Fastest SC = 2/(2+1) = 2/3
+    // Slowest SC = 2/(30+1) = 2/31
+    let fastest_sc = 2.0 / 3.0;
+    let slowest_sc = 2.0 / 31.0;
+
+    let state = KAMAState {
+        period,
+        buffer: Vec::new(),
+        lookback_count: 0,
+        prev_kama: None,
+        fastest_sc,
+        slowest_sc,
+    };
+
+    let resource = ResourceArc::new(state);
+    ok!(env, resource)
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_kama_state_next(
+    env: Env,
+    state: ResourceArc<KAMAState>,
+    value: f64,
+    is_new_bar: bool,
+) -> NifResult<Term> {
+    let mut new_state = (*state).clone();
+
+    // Update lookback counter
+    if is_new_bar {
+        new_state.lookback_count += 1;
+    }
+
+    // Update buffer
+    if is_new_bar {
+        new_state.buffer.push(value);
+        // Keep buffer size = period + 1
+        if new_state.buffer.len() > (new_state.period as usize) + 1 {
+            new_state.buffer.remove(0);
+        }
+    } else {
+        // UPDATE mode: replace last value
+        if new_state.buffer.is_empty() {
+            new_state.buffer.push(value);
+        } else {
+            let last_idx = new_state.buffer.len() - 1;
+            new_state.buffer[last_idx] = value;
+        }
+    }
+
+    // Calculate KAMA
+    let kama = if new_state.lookback_count <= new_state.period {
+        // Still in warmup period
+        None
+    } else if new_state.prev_kama.is_none() {
+        // First KAMA value
+        Some(new_state.buffer[new_state.period as usize])
+    } else {
+        // Calculate efficiency ratio and KAMA
+        let buffer_len = new_state.buffer.len();
+        let change = (new_state.buffer[buffer_len - 1] - new_state.buffer[0]).abs();
+
+        let mut volatility = 0.0;
+        for i in 0..buffer_len - 1 {
+            volatility += (new_state.buffer[i + 1] - new_state.buffer[i]).abs();
+        }
+
+        let er = if volatility == 0.0 {
+            0.0
+        } else {
+            change / volatility
+        };
+
+        let sc = (er * (new_state.fastest_sc - new_state.slowest_sc) + new_state.slowest_sc).powi(2);
+        let prev = new_state.prev_kama.unwrap();
+        Some(prev + sc * (value - prev))
+    };
+
+    // Update prev_kama if we calculated a new value
+    if kama.is_some() {
+        new_state.prev_kama = kama;
+    }
+
+    let resource = ResourceArc::new(new_state);
+    ok_tuple!(env, kama, resource)
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_kama_state_init(env: Env, _period: i32) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_kama_state_next(
+    env: Env,
+    _state: Term,
+    _value: f64,
+    _is_new_bar: bool,
+) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}

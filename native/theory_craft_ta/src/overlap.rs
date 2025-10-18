@@ -513,3 +513,68 @@ pub fn overlap_t3(env: Env, _data: Vec<f64>, _period: i32, _vfactor: f64) -> Nif
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_kama(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term> {
+    use overlap_ffi::*;
+
+    // Empty input check
+    if data.is_empty() {
+        return ok!(env, Vec::<Option<f64>>::new());
+    }
+
+    let data_len = data.len() as i32;
+    let start_idx = 0;
+    let end_idx = data_len - 1;
+
+    // Get lookback period
+    let lookback = unsafe { TA_KAMA_Lookback(period) };
+
+    // Allocate output buffer
+    let mut out_beg_idx: i32 = 0;
+    let mut out_nb_element: i32 = 0;
+    let mut out_real: Vec<f64> = vec![0.0; data_len as usize];
+
+    // Call TA-Lib
+    let ret_code = unsafe {
+        TA_KAMA(
+            start_idx,
+            end_idx,
+            data.as_ptr(),
+            period,
+            &mut out_beg_idx as *mut i32,
+            &mut out_nb_element as *mut i32,
+            out_real.as_mut_ptr(),
+        )
+    };
+
+    check_ret_code!(env, ret_code, "KAMA");
+
+    // Build result with nil padding for lookback period
+    let mut result: Vec<Option<f64>> = Vec::with_capacity(data_len as usize);
+
+    // Lookback can't exceed data length
+    let num_nils = std::cmp::min(lookback, data_len);
+
+    // Add nil values for lookback period
+    for _ in 0..num_nils {
+        result.push(None);
+    }
+
+    // Add calculated KAMA values
+    for i in 0..out_nb_element {
+        result.push(Some(out_real[i as usize]));
+    }
+
+    ok!(env, result)
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_kama(env: Env, _data: Vec<f64>, _period: i32) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
