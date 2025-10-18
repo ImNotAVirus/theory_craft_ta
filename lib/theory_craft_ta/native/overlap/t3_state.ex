@@ -56,7 +56,7 @@ defmodule TheoryCraftTA.Native.Overlap.T3State do
       iex> {:ok, t3, state2} = TheoryCraftTA.Native.Overlap.T3State.next(state, 100.0, true)
       iex> t3
       nil
-      iex> {:ok, t3, state3} = TheoryCraftTA.Native.Overlap.T3State.next(state2, 110.0, true)
+      iex> {:ok, t3, _state3} = TheoryCraftTA.Native.Overlap.T3State.next(state2, 110.0, true)
       iex> t3
       nil
 

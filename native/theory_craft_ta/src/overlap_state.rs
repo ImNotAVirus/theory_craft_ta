@@ -1027,39 +1027,39 @@ pub fn overlap_t3_state_next(
         };
 
     // Process EMA1
-    let (ema1_value, new_ema1_state) = process_ema_state(&*state.ema1_state, value, is_new_bar);
+    let (ema1_value, new_ema1_state) = process_ema_state(&state.ema1_state, value, is_new_bar);
 
     // Process EMA2 (EMA of EMA1)
     let (ema2_value, new_ema2_state) = if let Some(ema1_val) = ema1_value {
-        process_ema_state(&*state.ema2_state, ema1_val, is_new_bar)
+        process_ema_state(&state.ema2_state, ema1_val, is_new_bar)
     } else {
         (None, state.ema2_state.clone())
     };
 
     // Process EMA3 (EMA of EMA2)
     let (ema3_value, new_ema3_state) = if let Some(ema2_val) = ema2_value {
-        process_ema_state(&*state.ema3_state, ema2_val, is_new_bar)
+        process_ema_state(&state.ema3_state, ema2_val, is_new_bar)
     } else {
         (None, state.ema3_state.clone())
     };
 
     // Process EMA4 (EMA of EMA3)
     let (ema4_value, new_ema4_state) = if let Some(ema3_val) = ema3_value {
-        process_ema_state(&*state.ema4_state, ema3_val, is_new_bar)
+        process_ema_state(&state.ema4_state, ema3_val, is_new_bar)
     } else {
         (None, state.ema4_state.clone())
     };
 
     // Process EMA5 (EMA of EMA4)
     let (ema5_value, new_ema5_state) = if let Some(ema4_val) = ema4_value {
-        process_ema_state(&*state.ema5_state, ema4_val, is_new_bar)
+        process_ema_state(&state.ema5_state, ema4_val, is_new_bar)
     } else {
         (None, state.ema5_state.clone())
     };
 
     // Process EMA6 (EMA of EMA5)
     let (ema6_value, new_ema6_state) = if let Some(ema5_val) = ema5_value {
-        process_ema_state(&*state.ema6_state, ema5_val, is_new_bar)
+        process_ema_state(&state.ema6_state, ema5_val, is_new_bar)
     } else {
         (None, state.ema6_state.clone())
     };
