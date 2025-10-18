@@ -129,8 +129,9 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMAState do
       # Calculate KAMA
       kama =
         if state.prev_kama == nil do
-          # First KAMA value - use value at lookback position
-          Enum.at(new_buffer, state.period)
+          # First KAMA value - initialize with previous bar's price, then calculate
+          prev_price = Enum.at(new_buffer, state.period - 1)
+          calculate_kama(new_buffer, value, %{state | prev_kama: prev_price})
         else
           calculate_kama(new_buffer, value, state)
         end

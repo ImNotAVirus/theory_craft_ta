@@ -1483,9 +1483,6 @@ pub fn overlap_kama_state_next(
     let kama = if new_state.lookback_count <= new_state.period {
         // Still in warmup period
         None
-    } else if new_state.prev_kama.is_none() {
-        // First KAMA value
-        Some(new_state.buffer[new_state.period as usize])
     } else {
         // Calculate efficiency ratio and KAMA
         let buffer_len = new_state.buffer.len();
@@ -1504,7 +1501,9 @@ pub fn overlap_kama_state_next(
 
         let sc =
             (er * (new_state.fastest_sc - new_state.slowest_sc) + new_state.slowest_sc).powi(2);
-        let prev = new_state.prev_kama.unwrap();
+        let prev = new_state
+            .prev_kama
+            .unwrap_or(new_state.buffer[(new_state.period - 1) as usize]);
         Some(prev + sc * (value - prev))
     };
 
