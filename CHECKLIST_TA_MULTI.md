@@ -158,9 +158,11 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 - ✅ **ALWAYS** use `.tools/run_ci.cmd` script (sets up PATH, cargo, cmake, etc.)
 - ✅ **NEVER** run `mix ci` directly (PATH won't be setup correctly)
 - ✅ Work in `.tmp/theory_craft_ta_{indicator}/` (NOT `../.tmp/`)
+- ⚠️ If you get "cargo not found" errors, run: `.tools/RefreshEnv.cmd && <your command>`
 
 **Verification Steps**:
 - Compile and test: `.tools/run_ci.cmd` → check 0 warnings, 0 failures
+  - If errors occur, try: `.tools/RefreshEnv.cmd && .tools/run_ci.cmd`
 - Run benchmarks:
   - `.tools/run_benchmark.cmd benchmarks/{indicator}_benchmark.exs`
   - `.tools/run_benchmark.cmd benchmarks/{indicator}_state_benchmark.exs`
