@@ -293,9 +293,14 @@ defmodule TheoryCraftTA.SARTest do
       high_values = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]
       low_values = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0]
 
-      # DataSeries stores in newest-first order
-      high = DataSeries.new(Enum.reverse(high_values))
-      low = DataSeries.new(Enum.reverse(low_values))
+      # Build DataSeries by adding values (oldest to newest, so they end up newest-first)
+      high =
+        high_values
+        |> Enum.reduce(DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
+
+      low =
+        low_values
+        |> Enum.reduce(DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
 
       assert {:ok, %DataSeries{} = result} = TheoryCraftTA.sar(high, low)
 
@@ -337,17 +342,23 @@ defmodule TheoryCraftTA.SARTest do
           DateTime.add(~U[2024-01-01 00:00:00Z], i * 60, :second)
         end)
 
-      # TimeSeries stores in newest-first order
-      high_data = Enum.zip(timestamps, high_values) |> Enum.reverse() |> Map.new()
-      low_data = Enum.zip(timestamps, low_values) |> Enum.reverse() |> Map.new()
+      # Build TimeSeries by adding values with timestamps (oldest to newest)
+      high =
+        Enum.zip(timestamps, high_values)
+        |> Enum.reduce(TimeSeries.new(), fn {ts, val}, acc ->
+          TimeSeries.add(acc, ts, val)
+        end)
 
-      high = TimeSeries.new(high_data)
-      low = TimeSeries.new(low_data)
+      low =
+        Enum.zip(timestamps, low_values)
+        |> Enum.reduce(TimeSeries.new(), fn {ts, val}, acc ->
+          TimeSeries.add(acc, ts, val)
+        end)
 
       assert {:ok, %TimeSeries{} = result} = TheoryCraftTA.sar(high, low)
 
       # Extract values (should be in newest-first order, matching timestamps)
-      values = TimeSeries.values(result) |> Enum.map(fn {_ts, val} -> val end)
+      values = TimeSeries.values(result)
 
       expected = [
         12.337106575171585,
@@ -657,9 +668,14 @@ defmodule TheoryCraftTA.SARTest do
       high_values = [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]
       low_values = [8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0]
 
-      # DataSeries stores in newest-first order
-      high = DataSeries.new(Enum.reverse(high_values))
-      low = DataSeries.new(Enum.reverse(low_values))
+      # Build DataSeries by adding values (oldest to newest, so they end up newest-first)
+      high =
+        high_values
+        |> Enum.reduce(DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
+
+      low =
+        low_values
+        |> Enum.reduce(DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
 
       assert {:ok, %DataSeries{} = result} = TheoryCraftTA.sar(high, low)
 
@@ -701,17 +717,23 @@ defmodule TheoryCraftTA.SARTest do
           DateTime.add(~U[2024-01-01 00:00:00Z], i * 60, :second)
         end)
 
-      # TimeSeries stores in newest-first order
-      high_data = Enum.zip(timestamps, high_values) |> Enum.reverse() |> Map.new()
-      low_data = Enum.zip(timestamps, low_values) |> Enum.reverse() |> Map.new()
+      # Build TimeSeries by adding values with timestamps (oldest to newest)
+      high =
+        Enum.zip(timestamps, high_values)
+        |> Enum.reduce(TimeSeries.new(), fn {ts, val}, acc ->
+          TimeSeries.add(acc, ts, val)
+        end)
 
-      high = TimeSeries.new(high_data)
-      low = TimeSeries.new(low_data)
+      low =
+        Enum.zip(timestamps, low_values)
+        |> Enum.reduce(TimeSeries.new(), fn {ts, val}, acc ->
+          TimeSeries.add(acc, ts, val)
+        end)
 
       assert {:ok, %TimeSeries{} = result} = TheoryCraftTA.sar(high, low)
 
       # Extract values (should be in newest-first order, matching timestamps)
-      values = TimeSeries.values(result) |> Enum.map(fn {_ts, val} -> val end)
+      values = TimeSeries.values(result)
 
       expected = [
         12.337106575171585,
