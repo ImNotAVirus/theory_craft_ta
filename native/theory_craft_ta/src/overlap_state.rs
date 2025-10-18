@@ -59,6 +59,14 @@ pub struct MIDPOINTState {
     lookback_count: i32,
 }
 
+
+/// State for MIDPRICE calculation
+pub struct MIDPRICEState {
+    period: i32,
+    high_buffer: Vec<f64>,
+    low_buffer: Vec<f64>,
+    lookback_count: i32,
+}
 /// State for T3 calculation
 pub struct T3State {
     period: i32,
@@ -998,6 +1006,94 @@ pub fn overlap_midpoint_state_next(
 
 #[cfg(has_talib)]
 #[rustler::nif]
+pub fn overlap_midprice_state_init(env: Env, period: i32) -> NifResult<Term> {
+    if period < 2 {
+        return error!(env, "Invalid period: must be >= 2 for MIDPRICE");
+    }
+
+    let state = MIDPRICEState {
+        period,
+        high_buffer: Vec::new(),
+        low_buffer: Vec::new(),
+        lookback_count: 0,
+    };
+
+    let resource = ResourceArc::new(state);
+    ok!(env, resource)
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_midprice_state_next(
+    env: Env,
+    state_arc: ResourceArc<MIDPRICEState>,
+    high_value: f64,
+    low_value: f64,
+    is_new_bar: bool,
+) -> NifResult<Term> {
+    let state = &*state_arc;
+
+    let mut new_high_buffer = state.high_buffer.clone();
+    let mut new_low_buffer = state.low_buffer.clone();
+    let new_lookback = if is_new_bar {
+        state.lookback_count + 1
+    } else {
+        state.lookback_count
+    };
+
+    // Update buffers
+    if is_new_bar {
+        new_high_buffer.push(high_value);
+        new_low_buffer.push(low_value);
+        if new_high_buffer.len() > state.period as usize {
+            new_high_buffer.remove(0);
+            new_low_buffer.remove(0);
+        }
+    } else {
+        // UPDATE mode: replace last values
+        if !new_high_buffer.is_empty() {
+            let last_idx = new_high_buffer.len() - 1;
+            new_high_buffer[last_idx] = high_value;
+            new_low_buffer[last_idx] = low_value;
+        } else {
+            // First values in first bar
+            new_high_buffer.push(high_value);
+            new_low_buffer.push(low_value);
+        }
+    }
+
+    // Warmup phase: need 'period' bars
+    if new_lookback < state.period {
+        let new_state = MIDPRICEState {
+            period: state.period,
+            high_buffer: new_high_buffer,
+            low_buffer: new_low_buffer,
+            lookback_count: new_lookback,
+        };
+        let new_resource = ResourceArc::new(new_state);
+        let result = (None::<f64>, new_resource);
+        return ok!(env, result);
+    }
+
+    // Calculate MIDPRICE
+    let highest_high = new_high_buffer.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let lowest_low = new_low_buffer.iter().cloned().fold(f64::INFINITY, f64::min);
+    let midprice = (highest_high + lowest_low) / 2.0;
+
+    let new_state = MIDPRICEState {
+        period: state.period,
+        high_buffer: new_high_buffer,
+        low_buffer: new_low_buffer,
+        lookback_count: new_lookback,
+    };
+
+    let new_resource = ResourceArc::new(new_state);
+    let result = (midprice, new_resource);
+    ok!(env, result)
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
 pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<Term> {
     if period < 2 {
         return error!(env, "Invalid period: must be >= 2 for T3");
@@ -1390,6 +1486,30 @@ pub fn overlap_trima_state_next(
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_midprice_state_init(env: Env, _period: i32) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_midprice_state_next(
+    env: Env,
+    _state: Term,
+    _high_value: f64,
+    _low_value: f64,
+    _is_new_bar: bool,
+) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
 pub fn overlap_t3_state_init(env: Env, _period: i32, _vfactor: f64) -> NifResult<Term> {
     error!(
         env,
