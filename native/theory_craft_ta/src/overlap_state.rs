@@ -58,7 +58,6 @@ pub struct MIDPOINTState {
     lookback_count: i32,
 }
 
-
 /// State for MIDPRICE calculation
 pub struct MIDPRICEState {
     period: i32,
@@ -975,7 +974,10 @@ pub fn overlap_midprice_state_next(
     }
 
     // Calculate MIDPRICE
-    let highest_high = new_high_buffer.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let highest_high = new_high_buffer
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
     let lowest_low = new_low_buffer.iter().cloned().fold(f64::INFINITY, f64::min);
     let midprice = (highest_high + lowest_low) / 2.0;
 
@@ -1361,9 +1363,6 @@ pub fn overlap_trima_state_next(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
-
-#[cfg(not(has_talib))]
-#[rustler::nif]
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
