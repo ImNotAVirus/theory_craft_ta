@@ -513,3 +513,104 @@ pub fn overlap_t3(env: Env, _data: Vec<f64>, _period: i32, _vfactor: f64) -> Nif
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
+
+// SAR implementation with ta-lib
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_sar(
+    env: Env,
+    high: Vec<f64>,
+    low: Vec<f64>,
+    acceleration: f64,
+    maximum: f64,
+) -> NifResult<Term> {
+    use crate::overlap_ffi::{TA_SAR_Lookback, TA_SAR};
+
+    // Validate inputs
+    if high.len() != low.len() {
+        return error!(env, "high and low must have the same length");
+    }
+
+    if acceleration <= 0.0 {
+        return error!(env, "acceleration must be positive");
+    }
+
+    if maximum <= 0.0 {
+        return error!(env, "maximum must be positive");
+    }
+
+    if acceleration > maximum {
+        return error!(env, "acceleration must be less than or equal to maximum");
+    }
+
+    let data_len = high.len() as i32;
+
+    if data_len == 0 {
+        return ok!(env, Vec::<Option<f64>>::new());
+    }
+
+    // Get lookback period
+    let lookback = unsafe { TA_SAR_Lookback(acceleration, maximum) };
+
+    if data_len <= lookback {
+        // Not enough data - return all nils
+        let result: Vec<Option<f64>> = vec![None; data_len as usize];
+        return ok!(env, result);
+    }
+
+    // Prepare output buffers
+    let mut out_beg_idx: i32 = 0;
+    let mut out_nb_element: i32 = 0;
+    let mut out_real: Vec<f64> = vec![0.0; data_len as usize];
+
+    // Call TA-Lib SAR function
+    let ret_code = unsafe {
+        TA_SAR(
+            0,
+            data_len - 1,
+            high.as_ptr(),
+            low.as_ptr(),
+            acceleration,
+            maximum,
+            &mut out_beg_idx as *mut i32,
+            &mut out_nb_element as *mut i32,
+            out_real.as_mut_ptr(),
+        )
+    };
+
+    check_ret_code!(env, ret_code, "SAR");
+
+    // Build result with nil padding for lookback period
+    let mut result: Vec<Option<f64>> = Vec::with_capacity(data_len as usize);
+
+    // Lookback can't exceed data length
+    let num_nils = std::cmp::min(lookback, data_len);
+
+    // Add nil values for lookback period
+    for _ in 0..num_nils {
+        result.push(None);
+    }
+
+    // Add calculated SAR values
+    for i in 0..out_nb_element {
+        result.push(Some(out_real[i as usize]));
+    }
+
+    ok!(env, result)
+}
+
+// Stub implementation when ta-lib is not available
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_sar(
+    env: Env,
+    _high: Vec<f64>,
+    _low: Vec<f64>,
+    _acceleration: f64,
+    _maximum: f64,
+) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}

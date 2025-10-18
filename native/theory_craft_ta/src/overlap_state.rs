@@ -72,6 +72,20 @@ pub struct T3State {
     ema6_state: Box<EMAState>,
 }
 
+/// State for SAR calculation
+#[derive(Clone)]
+pub struct SARState {
+    acceleration: f64,
+    maximum: f64,
+    is_long: Option<bool>,
+    sar: Option<f64>,
+    ep: Option<f64>,
+    af: f64,
+    prev_high: Option<f64>,
+    prev_low: Option<f64>,
+    bar_count: i32,
+}
+
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_ema_state_init(env: Env, period: i32) -> NifResult<Term> {
@@ -1403,6 +1417,179 @@ pub fn overlap_t3_state_next(
     env: Env,
     _state: Term,
     _value: f64,
+    _is_new_bar: bool,
+) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+// SAR State implementation
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_sar_state_init(env: Env, acceleration: f64, maximum: f64) -> NifResult<Term> {
+    if acceleration <= 0.0 {
+        return error!(env, "acceleration must be positive");
+    }
+
+    if maximum <= 0.0 {
+        return error!(env, "maximum must be positive");
+    }
+
+    if acceleration > maximum {
+        return error!(env, "acceleration must be less than or equal to maximum");
+    }
+
+    let state = SARState {
+        acceleration,
+        maximum,
+        is_long: None,
+        sar: None,
+        ep: None,
+        af: acceleration,
+        prev_high: None,
+        prev_low: None,
+        bar_count: 0,
+    };
+
+    let resource = ResourceArc::new(state);
+    ok!(env, resource)
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_sar_state_next(
+    env: Env,
+    state_arc: ResourceArc<SARState>,
+    high: f64,
+    low: f64,
+    is_new_bar: bool,
+) -> NifResult<Term> {
+    let mut state = (*state_arc).clone();
+
+    if is_new_bar {
+        // APPEND mode
+        if state.bar_count == 0 {
+            // First bar - just store values
+            state.prev_high = Some(high);
+            state.prev_low = Some(low);
+            state.bar_count = 1;
+            let new_state_arc = ResourceArc::new(state);
+            return ok!(env, (None::<f64>, new_state_arc));
+        } else if state.bar_count == 1 {
+            // Second bar - initialize position
+            let prev_high = state.prev_high.unwrap();
+            let prev_low = state.prev_low.unwrap();
+
+            let (is_long, initial_sar, initial_ep) = if high - prev_high > prev_low - low {
+                // Uptrend
+                (true, prev_low, high)
+            } else {
+                // Downtrend
+                (false, prev_high, low)
+            };
+
+            state.is_long = Some(is_long);
+            state.sar = Some(initial_sar);
+            state.ep = Some(initial_ep);
+            state.af = state.acceleration;
+            state.prev_high = Some(high);
+            state.prev_low = Some(low);
+            state.bar_count = 2;
+
+            let new_state_arc = ResourceArc::new(state);
+            return ok!(env, (Some(initial_sar), new_state_arc));
+        } else {
+            // Subsequent bars - normal SAR calculation
+            let is_long = state.is_long.unwrap();
+            let sar = state.sar.unwrap();
+            let ep = state.ep.unwrap();
+            let af = state.af;
+
+            // Calculate new SAR
+            let new_sar = sar + af * (ep - sar);
+
+            // Check for reversal
+            let (final_sar, new_ep, new_af, new_is_long) = if is_long {
+                // Long position
+                if low <= new_sar {
+                    // Reversal to short
+                    (ep, low, state.acceleration, false)
+                } else {
+                    // Continue long
+                    let (updated_ep, updated_af) = if high > ep {
+                        (high, f64::min(af + state.acceleration, state.maximum))
+                    } else {
+                        (ep, af)
+                    };
+                    (new_sar, updated_ep, updated_af, true)
+                }
+            } else {
+                // Short position
+                if high >= new_sar {
+                    // Reversal to long
+                    (ep, high, state.acceleration, true)
+                } else {
+                    // Continue short
+                    let (updated_ep, updated_af) = if low < ep {
+                        (low, f64::min(af + state.acceleration, state.maximum))
+                    } else {
+                        (ep, af)
+                    };
+                    (new_sar, updated_ep, updated_af, false)
+                }
+            };
+
+            state.is_long = Some(new_is_long);
+            state.sar = Some(final_sar);
+            state.ep = Some(new_ep);
+            state.af = new_af;
+            state.prev_high = Some(high);
+            state.prev_low = Some(low);
+            state.bar_count += 1;
+
+            let new_state_arc = ResourceArc::new(state);
+            return ok!(env, (Some(final_sar), new_state_arc));
+        }
+    } else {
+        // UPDATE mode - recalculate current bar
+        if state.bar_count < 2 {
+            // During warmup, just update stored values
+            if state.bar_count == 0 {
+                state.prev_high = Some(high);
+                state.prev_low = Some(low);
+            } else {
+                state.prev_high = Some(high);
+                state.prev_low = Some(low);
+            }
+            let new_state_arc = ResourceArc::new(state);
+            return ok!(env, (None::<f64>, new_state_arc));
+        } else {
+            // Temporarily reduce bar count and recalculate
+            state.bar_count -= 1;
+            let temp_state_arc = ResourceArc::new(state);
+            return overlap_sar_state_next(env, temp_state_arc, high, low, true);
+        }
+    }
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_sar_state_init(env: Env, _acceleration: f64, _maximum: f64) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_sar_state_next(
+    env: Env,
+    _state: Term,
+    _high: f64,
+    _low: f64,
     _is_new_bar: bool,
 ) -> NifResult<Term> {
     error!(
