@@ -1476,7 +1476,7 @@ pub fn overlap_sar_state_next(
             state.prev_low = Some(low);
             state.bar_count = 1;
             let new_state_arc = ResourceArc::new(state);
-            return ok!(env, (None::<f64>, new_state_arc));
+            ok!(env, (None::<f64>, new_state_arc))
         } else if state.bar_count == 1 {
             // Second bar - initialize position
             let prev_high = state.prev_high.unwrap();
@@ -1499,7 +1499,7 @@ pub fn overlap_sar_state_next(
             state.bar_count = 2;
 
             let new_state_arc = ResourceArc::new(state);
-            return ok!(env, (Some(initial_sar), new_state_arc));
+            ok!(env, (Some(initial_sar), new_state_arc))
         } else {
             // Subsequent bars - normal SAR calculation
             let is_long = state.is_long.unwrap();
@@ -1550,26 +1550,21 @@ pub fn overlap_sar_state_next(
             state.bar_count += 1;
 
             let new_state_arc = ResourceArc::new(state);
-            return ok!(env, (Some(final_sar), new_state_arc));
+            ok!(env, (Some(final_sar), new_state_arc))
         }
     } else {
         // UPDATE mode - recalculate current bar
         if state.bar_count < 2 {
             // During warmup, just update stored values
-            if state.bar_count == 0 {
-                state.prev_high = Some(high);
-                state.prev_low = Some(low);
-            } else {
-                state.prev_high = Some(high);
-                state.prev_low = Some(low);
-            }
+            state.prev_high = Some(high);
+            state.prev_low = Some(low);
             let new_state_arc = ResourceArc::new(state);
-            return ok!(env, (None::<f64>, new_state_arc));
+            ok!(env, (None::<f64>, new_state_arc))
         } else {
             // Temporarily reduce bar count and recalculate
             state.bar_count -= 1;
             let temp_state_arc = ResourceArc::new(state);
-            return overlap_sar_state_next(env, temp_state_arc, high, low, true);
+            overlap_sar_state_next(env, temp_state_arc, high, low, true)
         }
     }
 }

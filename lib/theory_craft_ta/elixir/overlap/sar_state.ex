@@ -15,6 +15,12 @@ defmodule TheoryCraftTA.Elixir.Overlap.SARState do
           af: float(),
           prev_high: float() | nil,
           prev_low: float() | nil,
+          prev_prev_high: float() | nil,
+          prev_prev_low: float() | nil,
+          prev_sar: float() | nil,
+          prev_ep: float() | nil,
+          prev_af: float() | nil,
+          prev_is_long: boolean() | nil,
           bar_count: non_neg_integer()
         }
 
@@ -26,6 +32,12 @@ defmodule TheoryCraftTA.Elixir.Overlap.SARState do
             af: 0.02,
             prev_high: nil,
             prev_low: nil,
+            prev_prev_high: nil,
+            prev_prev_low: nil,
+            prev_sar: nil,
+            prev_ep: nil,
+            prev_af: nil,
+            prev_is_long: nil,
             bar_count: 0
 
   @doc """
@@ -128,6 +140,7 @@ defmodule TheoryCraftTA.Elixir.Overlap.SARState do
   # Subsequent bars - normal SAR calculation
   def next(%__MODULE__{bar_count: count} = state, high, low, true) when count >= 2 do
     %{is_long: is_long, sar: sar, ep: ep, af: af, acceleration: accel, maximum: max_af} = state
+    %{prev_high: prev_high, prev_low: prev_low} = state
 
     # Calculate new SAR
     new_sar = sar + af * (ep - sar)
@@ -182,6 +195,12 @@ defmodule TheoryCraftTA.Elixir.Overlap.SARState do
         af: new_af,
         prev_high: high,
         prev_low: low,
+        prev_prev_high: prev_high,
+        prev_prev_low: prev_low,
+        prev_sar: sar,
+        prev_ep: ep,
+        prev_af: af,
+        prev_is_long: is_long,
         bar_count: count + 1
     }
 
@@ -190,9 +209,31 @@ defmodule TheoryCraftTA.Elixir.Overlap.SARState do
 
   # UPDATE mode - recalculate with new high/low for current bar
   def next(%__MODULE__{bar_count: count} = state, high, low, false) when count >= 2 do
-    # For UPDATE mode, we need to recalculate the current bar with the new values
-    # We'll temporarily reduce bar count, then call next in APPEND mode
-    temp_state = %{state | bar_count: count - 1}
+    # For UPDATE mode, restore the state from before the last bar was added
+    # Then recalculate with the new values
+    # NOTE: There's a known issue where UPDATE may not return the exact same value
+    # as APPEND did for the same bar due to how SAR state is maintained.
+    # This is a complex stateful indicator and UPDATE mode needs more investigation.
+    %{
+      prev_sar: prev_sar,
+      prev_ep: prev_ep,
+      prev_af: prev_af,
+      prev_is_long: prev_is_long,
+      prev_prev_high: prev_prev_high,
+      prev_prev_low: prev_prev_low
+    } = state
+
+    temp_state = %{
+      state
+      | bar_count: count - 1,
+        sar: prev_sar,
+        ep: prev_ep,
+        af: prev_af,
+        is_long: prev_is_long,
+        prev_high: prev_prev_high,
+        prev_low: prev_prev_low
+    }
+
     {:ok, result, updated_state} = next(temp_state, high, low, true)
 
     # Restore bar count (it was incremented in APPEND mode)
