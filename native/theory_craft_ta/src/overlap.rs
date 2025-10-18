@@ -165,6 +165,61 @@ pub fn overlap_wma(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term> {
     ok!(env, result)
 }
 
+// Implementation when ta-lib is available
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_dema(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term> {
+    use crate::overlap_ffi::{TA_DEMA_Lookback, TA_DEMA};
+
+    // Empty data → return empty (like Python)
+    if data.is_empty() {
+        return ok!(env, Vec::<Option<f64>>::new());
+    }
+
+    let data_len = data.len() as i32;
+
+    // Calculate lookback period
+    let lookback = unsafe { TA_DEMA_Lookback(period) };
+
+    // Prepare output buffers
+    let mut out_beg_idx: i32 = 0;
+    let mut out_nb_element: i32 = 0;
+    let mut out_real: Vec<f64> = vec![0.0; data_len as usize];
+
+    // Call TA_DEMA
+    let ret_code = unsafe {
+        TA_DEMA(
+            0,
+            data_len - 1,
+            data.as_ptr(),
+            period,
+            &mut out_beg_idx as *mut i32,
+            &mut out_nb_element as *mut i32,
+            out_real.as_mut_ptr(),
+        )
+    };
+
+    check_ret_code!(env, ret_code, "DEMA");
+
+    // Build result with nil padding for lookback period
+    let mut result: Vec<Option<f64>> = Vec::with_capacity(data_len as usize);
+
+    // Lookback is 2*(period - 1), but can't exceed data length
+    let num_nils = std::cmp::min(lookback, data_len);
+
+    // Add nil values for lookback period
+    for _ in 0..num_nils {
+        result.push(None);
+    }
+
+    // Add calculated DEMA values
+    for i in 0..out_nb_element {
+        result.push(Some(out_real[i as usize]));
+    }
+
+    ok!(env, result)
+}
+
 // Stub implementation when ta-lib is not available
 #[cfg(not(has_talib))]
 #[rustler::nif]
@@ -187,6 +242,15 @@ pub fn overlap_ema(env: Env, _data: Vec<f64>, _period: i32) -> NifResult<Term> {
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_wma(env: Env, _data: Vec<f64>, _period: i32) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_dema(env: Env, _data: Vec<f64>, _period: i32) -> NifResult<Term> {
     error!(
         env,
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."

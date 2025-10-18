@@ -64,4 +64,16 @@ extern "C" {
     ) -> i32;
 
     pub fn TA_WMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_DEMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_DEMA_Lookback(opt_in_time_period: i32) -> i32;
 }

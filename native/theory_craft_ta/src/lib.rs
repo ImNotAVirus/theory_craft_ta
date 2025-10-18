@@ -24,5 +24,6 @@ fn load(env: Env, _: Term) -> bool {
     let _ = rustler::resource!(overlap_state::SMAState, env);
     let _ = rustler::resource!(overlap_state::EMAState, env);
     let _ = rustler::resource!(overlap_state::WMAState, env);
+    let _ = rustler::resource!(overlap_state::DEMAState, env);
     true
 }

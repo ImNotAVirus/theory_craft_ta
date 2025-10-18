@@ -208,6 +208,58 @@ defmodule TheoryCraftTA do
     end
   end
 
+  @doc """
+  Double Exponential Moving Average.
+
+  Calculates the double exponential moving average of the input data over the specified period.
+  DEMA is calculated as: 2 * EMA(period) - EMA(EMA(period)).
+  This provides a smoother average with less lag than a simple EMA.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, result}` where result is the same type as input with DEMA values
+    - `{:error, reason}` if validation fails or calculation error occurs
+
+  ## Examples
+      iex> TheoryCraftTA.dema([1.0, 2.0, 3.0, 4.0, 5.0], 2)
+      {:ok, [nil, nil, 3.0, 4.0, 5.0]}
+
+  """
+  @spec dema(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
+  defdelegate dema(data, period), to: Module.concat([@backend, Overlap, DEMA])
+
+  @doc """
+  Double Exponential Moving Average - Bang version.
+
+  Same as `dema/2` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - Result of the same type as input with DEMA values
+
+  ## Raises
+    - `RuntimeError` if validation fails or calculation error occurs
+    - `FunctionClauseError` if period is not an integer
+
+  ## Examples
+      iex> TheoryCraftTA.dema!([1.0, 2.0, 3.0, 4.0, 5.0], 2)
+      [nil, nil, 3.0, 4.0, 5.0]
+
+  """
+  @spec dema!(source(), pos_integer()) :: source()
+  def dema!(data, period) do
+    case dema(data, period) do
+      {:ok, result} -> result
+      {:error, reason} -> raise "DEMA error: #{reason}"
+    end
+  end
+
   ## State-based Indicators
 
   @doc """
@@ -536,6 +588,120 @@ defmodule TheoryCraftTA do
   @spec wma_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
   def wma_state_next!(state, value, is_new_bar) do
     unwrap_next!(wma_state_next(state, value, is_new_bar), "WMA")
+  end
+
+  @doc """
+  Initialize DEMA state for incremental calculations.
+
+  Creates a new DEMA state that can be updated incrementally with each new value.
+  This is useful for streaming data where you want to calculate the DEMA as new
+  data arrives without recalculating the entire window.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `{:ok, state}` - Initial state for DEMA calculations
+    - `{:error, reason}` - If validation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.dema_state_init(3)
+      iex> is_reference(state) or is_struct(state)
+      true
+
+  """
+  @spec dema_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
+  defdelegate dema_state_init(period),
+    to: Module.concat([@backend, Overlap, DEMAState]),
+    as: :init
+
+  @doc """
+  Initialize DEMA state for incremental calculations - Bang version.
+
+  Same as `dema_state_init/1` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `period` - Number of periods for the moving average (must be an integer >= 2)
+
+  ## Returns
+    - `state` - Initial state for DEMA calculations
+
+  ## Raises
+    - `RuntimeError` if validation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.dema_state_init!(3)
+      iex> is_reference(state) or is_struct(state)
+      true
+
+  """
+  @spec dema_state_init!(pos_integer()) :: term()
+  def dema_state_init!(period) do
+    unwrap_init!(dema_state_init(period), "DEMA")
+  end
+
+  @doc """
+  Process next value with DEMA state.
+
+  Updates the DEMA state with a new value and returns the current DEMA value.
+  Supports two modes:
+  - APPEND mode (`is_new_bar = true`): Adds a new value to the window
+  - UPDATE mode (`is_new_bar = false`): Recalculates DEMA with updated last value
+
+  The first DEMA value requires enough data to calculate two levels of EMA.
+
+  ## Parameters
+    - `state` - Current DEMA state (from `dema_state_init/1` or previous `dema_state_next/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{:ok, dema_value, new_state}` - The DEMA value (or nil during warmup) and updated state
+    - `{:error, reason}` - If calculation fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.dema_state_init(2)
+      iex> {:ok, nil, state2} = TheoryCraftTA.dema_state_next(state, 100.0, true)
+      iex> {:ok, nil, state3} = TheoryCraftTA.dema_state_next(state2, 110.0, true)
+      iex> {:ok, dema, _state4} = TheoryCraftTA.dema_state_next(state3, 120.0, true)
+      iex> dema
+      120.0
+
+  """
+  @spec dema_state_next(term(), float(), boolean()) ::
+          {:ok, float() | nil, term()} | {:error, String.t()}
+  defdelegate dema_state_next(state, value, is_new_bar),
+    to: Module.concat([@backend, Overlap, DEMAState]),
+    as: :next
+
+  @doc """
+  Process next value with DEMA state - Bang version.
+
+  Same as `dema_state_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `state` - Current DEMA state (from `dema_state_init!/1` or previous `dema_state_next!/3`)
+    - `value` - New data point (float)
+    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
+
+  ## Returns
+    - `{dema_value, new_state}` - The DEMA value (or nil during warmup) and updated state
+
+  ## Raises
+    - `RuntimeError` if calculation fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.dema_state_init!(2)
+      iex> {nil, state2} = TheoryCraftTA.dema_state_next!(state, 100.0, true)
+      iex> {nil, state3} = TheoryCraftTA.dema_state_next!(state2, 110.0, true)
+      iex> {dema, _state4} = TheoryCraftTA.dema_state_next!(state3, 120.0, true)
+      iex> dema
+      120.0
+
+  """
+  @spec dema_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def dema_state_next!(state, value, is_new_bar) do
+    unwrap_next!(dema_state_next(state, value, is_new_bar), "DEMA")
   end
 
   ## Private functions
