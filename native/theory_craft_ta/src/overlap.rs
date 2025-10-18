@@ -517,7 +517,7 @@ pub fn overlap_t3(env: Env, _data: Vec<f64>, _period: i32, _vfactor: f64) -> Nif
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_kama(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term> {
-    use overlap_ffi::*;
+    use crate::overlap_ffi::*;
 
     // Empty input check
     if data.is_empty() {

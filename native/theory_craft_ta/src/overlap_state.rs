@@ -1502,7 +1502,8 @@ pub fn overlap_kama_state_next(
             change / volatility
         };
 
-        let sc = (er * (new_state.fastest_sc - new_state.slowest_sc) + new_state.slowest_sc).powi(2);
+        let sc =
+            (er * (new_state.fastest_sc - new_state.slowest_sc) + new_state.slowest_sc).powi(2);
         let prev = new_state.prev_kama.unwrap();
         Some(prev + sc * (value - prev))
     };
@@ -1513,7 +1514,8 @@ pub fn overlap_kama_state_next(
     }
 
     let resource = ResourceArc::new(new_state);
-    ok_tuple!(env, kama, resource)
+    let result = (kama, resource);
+    ok!(env, result)
 }
 
 #[cfg(not(has_talib))]
