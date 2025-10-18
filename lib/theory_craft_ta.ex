@@ -471,6 +471,64 @@ defmodule TheoryCraftTA do
     end
   end
 
+  @doc """
+  Hilbert Transform - Instantaneous Trendline.
+
+  The HT_TRENDLINE uses the Hilbert Transform to smooth price data and identify
+  the underlying trend by eliminating cyclic components and noise from the price series.
+
+  This indicator requires a minimum of 64 data points (63 warmup + 1 valid value).
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+
+  ## Returns
+    - `{:ok, result}` where result is the same type as input with HT_TRENDLINE values
+    - `{:error, reason}` if validation fails or calculation error occurs
+
+  ## Examples
+      iex> data = Enum.map(1..100, fn i -> 50.0 + :math.sin(i / 10.0) * 10.0 end)
+      iex> {:ok, result} = TheoryCraftTA.ht_trendline(data)
+      iex> Enum.take(result, 63) |> Enum.all?(&(&1 == nil))
+      true
+      iex> is_float(Enum.at(result, 63))
+      true
+
+  """
+  @spec ht_trendline(source()) :: {:ok, source()} | {:error, String.t()}
+  defdelegate ht_trendline(data), to: Module.concat([@backend, Overlap, HT_TRENDLINE])
+
+  @doc """
+  Hilbert Transform - Instantaneous Trendline - Bang version.
+
+  Same as `ht_trendline/1` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
+
+  ## Returns
+    - Result of the same type as input with HT_TRENDLINE values
+
+  ## Raises
+    - `{:error, reason}` if validation fails or calculation error occurs
+
+  ## Examples
+      iex> data = Enum.map(1..100, fn i -> 50.0 + :math.sin(i / 10.0) * 10.0 end)
+      iex> result = TheoryCraftTA.ht_trendline!(data)
+      iex> Enum.take(result, 63) |> Enum.all?(&(&1 == nil))
+      true
+      iex> is_float(Enum.at(result, 63))
+      true
+
+  """
+  @spec ht_trendline!(source()) :: source()
+  def ht_trendline!(data) do
+    case ht_trendline(data) do
+      {:ok, result} -> result
+      {:error, reason} -> raise "HT_TRENDLINE error: #{reason}"
+    end
+  end
+
   ## State-based Indicators
 
   @doc """
@@ -1362,6 +1420,103 @@ defmodule TheoryCraftTA do
   @spec midpoint_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
   def midpoint_state_next!(state, value, is_new_bar) do
     unwrap_next!(midpoint_state_next(state, value, is_new_bar), "MIDPOINT")
+  end
+
+  @doc """
+  Initialize HT_TRENDLINE state for incremental calculations.
+
+  Creates a new HT_TRENDLINE state that can be updated incrementally with each new value.
+  This is useful for streaming data where you want to calculate the HT_TRENDLINE as new
+  data arrives.
+
+  ## Returns
+    - `{:ok, state}` - Initial state for HT_TRENDLINE calculations
+    - `{:error, reason}` - If initialization fails
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.ht_trendline_state_init()
+      iex> is_reference(state)
+      true
+
+  """
+  @spec ht_trendline_state_init() :: {:ok, term()} | {:error, String.t()}
+  defdelegate ht_trendline_state_init(),
+    to: Module.concat([@backend, Overlap, HT_TRENDLINEState]),
+    as: :init
+
+  @doc """
+  Initialize HT_TRENDLINE state for incremental calculations - Bang version.
+
+  Same as `ht_trendline_state_init/0` but raises an exception instead of returning an error tuple.
+
+  ## Returns
+    - `state` - Initial state for HT_TRENDLINE calculations
+
+  ## Raises
+    - `RuntimeError` if initialization fails
+
+  ## Examples
+      iex> state = TheoryCraftTA.ht_trendline_state_init!()
+      iex> is_reference(state)
+      true
+
+  """
+  @spec ht_trendline_state_init!() :: term()
+  def ht_trendline_state_init!() do
+    unwrap_init!(ht_trendline_state_init(), "HT_TRENDLINE")
+  end
+
+  @doc """
+  Process next value with HT_TRENDLINE state.
+
+  Updates the state with a new value and returns the HT_TRENDLINE value along with the updated state.
+
+  ## Parameters
+    - `state` - Current HT_TRENDLINE state (from `ht_trendline_state_init/0` or previous `ht_trendline_state_next/3`)
+    - `value` - New price value
+    - `is_new_bar` - true for new bar (APPEND), false for same bar update (UPDATE)
+
+  ## Returns
+    - `{:ok, ht_value, new_state}` where ht_value is nil during warmup (first 63 bars)
+    - `{:error, reason}` on error
+
+  ## Examples
+      iex> {:ok, state} = TheoryCraftTA.ht_trendline_state_init()
+      iex> {:ok, ht, state2} = TheoryCraftTA.ht_trendline_state_next(state, 100.0, true)
+      iex> ht
+      nil
+
+  """
+  @spec ht_trendline_state_next(term(), float(), boolean()) ::
+          {:ok, float() | nil, term()} | {:error, String.t()}
+  defdelegate ht_trendline_state_next(state, value, is_new_bar),
+    to: Module.concat([@backend, Overlap, HT_TRENDLINEState]),
+    as: :next
+
+  @doc """
+  Process next value with HT_TRENDLINE state - Bang version.
+
+  Same as `ht_trendline_state_next/3` but raises an exception instead of returning an error tuple.
+
+  ## Parameters
+    - `state` - Current HT_TRENDLINE state (from `ht_trendline_state_init!/0` or previous `ht_trendline_state_next!/3`)
+    - `value` - New price value
+    - `is_new_bar` - true for new bar (APPEND), false for same bar update (UPDATE)
+
+  ## Returns
+    - `{ht_value, new_state}` where ht_value is nil during warmup
+
+  ## Raises
+    - `RuntimeError` on error
+
+  ## Examples
+      iex> state = TheoryCraftTA.ht_trendline_state_init!()
+      iex> {nil, state2} = TheoryCraftTA.ht_trendline_state_next!(state, 100.0, true)
+
+  """
+  @spec ht_trendline_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def ht_trendline_state_next!(state, value, is_new_bar) do
+    unwrap_next!(ht_trendline_state_next(state, value, is_new_bar), "HT_TRENDLINE")
   end
 
   ## Private functions

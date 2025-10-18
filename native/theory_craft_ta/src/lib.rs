@@ -29,5 +29,6 @@ fn load(env: Env, _: Term) -> bool {
     let _ = rustler::resource!(overlap_state::TRIMAState, env);
     let _ = rustler::resource!(overlap_state::MIDPOINTState, env);
     let _ = rustler::resource!(overlap_state::T3State, env);
+    let _ = rustler::resource!(overlap_state::HT_TRENDLINEState, env);
     true
 }
