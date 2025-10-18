@@ -126,7 +126,9 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMAState do
       new_state = %{state | buffer: new_buffer, lookback_count: new_lookback}
       {:ok, nil, new_state}
     else
-      # Calculate KAMA
+      # Calculate KAMA using NEW buffer for ER
+      # The NEW buffer contains period+1 values: data[i-period, ..., i]
+      # This matches the batch implementation window
       kama =
         if state.prev_kama == nil do
           # First KAMA value - initialize with previous bar's price, then calculate

@@ -85,7 +85,7 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMA do
         |> Enum.with_index(lookback + 1)
         |> Enum.reduce({first_kama, [first_kama]}, fn {price, idx}, {prev_kama, acc} ->
           # Calculate Efficiency Ratio (ER)
-          window = Enum.slice(data, idx - period, period + 1)
+          window = Enum.slice(data, idx - period - 1, period + 1)
           change = abs(Enum.at(window, period) - Enum.at(window, 0))
 
           volatility =
