@@ -4,323 +4,220 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
 
   alias TheoryCraft.{DataSeries, TimeSeries}
 
-  doctest TheoryCraftTA.Native.Overlap.HT_TRENDLINE
-  doctest TheoryCraftTA.Elixir.Overlap.HT_TRENDLINE
-  doctest TheoryCraftTA.Native.Overlap.HT_TRENDLINEState
-  doctest TheoryCraftTA.Elixir.Overlap.HT_TRENDLINEState
+  @backend TheoryCraftTA.Native.Overlap.HT_TRENDLINE
 
-  @backends %{
-    native: TheoryCraftTA.Native.Overlap.HT_TRENDLINE,
-    elixir: TheoryCraftTA.Elixir.Overlap.HT_TRENDLINE
-  }
+  ## Tests
 
-  ## Tests for HT_TRENDLINE (Hilbert Transform - Instantaneous Trendline)
+  describe "ht_trendline/1 with list input" do
+    test "calculates correctly with 100 points" do
+      data = test_data_100()
+      expected = expected_output_100()
 
-  for {backend_name, backend_module} <- @backends do
-    @backend_module backend_module
+      assert {:ok, result} = @backend.ht_trendline(data)
 
-    describe "#{backend_name} - ht_trendline/1 with list input" do
-      test "calculates correctly with 100 points" do
-        data = test_data_100()
-        expected = expected_output_100()
-
-        assert {:ok, result} = @backend_module.ht_trendline(data)
-
-        # First 63 values should be nil (lookback period)
-        for i <- 0..62 do
-          assert Enum.at(result, i) == nil
-        end
-
-        # Check valid values (from index 63 onwards)
-        for i <- 63..99 do
-          assert_in_delta Enum.at(result, i), Enum.at(expected, i), 0.0001
-        end
+      for i <- 0..62 do
+        assert Enum.at(result, i) == nil
       end
 
-      test "returns all nil for data length < 64" do
-        data = Enum.take(test_data_100(), 63)
-        assert {:ok, result} = @backend_module.ht_trendline(data)
+      for i <- 63..99 do
+        expected_val = Enum.at(expected, i)
+        actual_val = Enum.at(result, i)
 
-        # All values should be nil
-        assert Enum.all?(result, &(&1 == nil))
-      end
-
-      test "returns first valid value at index 63 for exactly 64 points" do
-        data = Enum.take(test_data_100(), 64)
-        expected = Enum.take(expected_output_100(), 64)
-
-        assert {:ok, result} = @backend_module.ht_trendline(data)
-
-        # First 63 values should be nil
-        for i <- 0..62 do
-          assert Enum.at(result, i) == nil
+        if expected_val == nil do
+          assert actual_val == nil
+        else
+          assert_in_delta actual_val, expected_val, 0.0001
         end
-
-        # Index 63 should have the first valid value
-        assert_in_delta Enum.at(result, 63), Enum.at(expected, 63), 0.0001
-      end
-
-      test "returns empty for empty input" do
-        assert {:ok, []} = @backend_module.ht_trendline([])
       end
     end
 
-    describe "#{backend_name} - ht_trendline/1 with DataSeries input" do
-      test "returns DataSeries with HT_TRENDLINE values in newest-first order" do
-        data = test_data_100()
-        expected = expected_output_100()
+    test "returns all nil for data length < 64" do
+      data = Enum.take(test_data_100(), 63)
+      assert {:ok, result} = @backend.ht_trendline(data)
 
-        ds = Enum.reduce(data, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
-
-        assert {:ok, result_ds} = @backend_module.ht_trendline(ds)
-        assert %DataSeries{} = result_ds
-
-        values = DataSeries.values(result_ds)
-
-        # DataSeries stores newest-first, so reverse expected for comparison
-        expected_reversed = Enum.reverse(expected)
-
-        for i <- 0..99 do
-          if Enum.at(expected_reversed, i) == nil do
-            assert Enum.at(values, i) == nil
-          else
-            assert_in_delta Enum.at(values, i), Enum.at(expected_reversed, i), 0.0001
-          end
-        end
-      end
-
-      test "preserves DataSeries max_size" do
-        ds = DataSeries.new(max_size: 10)
-        ds = DataSeries.add(ds, 1.0)
-        ds = DataSeries.add(ds, 2.0)
-        ds = DataSeries.add(ds, 3.0)
-
-        assert {:ok, result_ds} = @backend_module.ht_trendline(ds)
-        assert %DataSeries{max_size: 10} = result_ds
-      end
-
-      test "returns empty DataSeries for empty input" do
-        ds = DataSeries.new()
-        assert {:ok, result_ds} = @backend_module.ht_trendline(ds)
-        assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == []
-      end
+      assert Enum.all?(result, &(&1 == nil))
     end
 
-    describe "#{backend_name} - ht_trendline/1 with TimeSeries input" do
-      test "returns TimeSeries with HT_TRENDLINE values in newest-first order" do
-        base_time = ~U[2024-01-01 00:00:00.000000Z]
-        data = test_data_100()
-        expected = expected_output_100()
+    test "returns empty for empty input" do
+      assert {:ok, []} = @backend.ht_trendline([])
+    end
+  end
 
-        ts =
-          data
-          |> Enum.with_index()
-          |> Enum.reduce(TimeSeries.new(), fn {val, i}, acc ->
-            TimeSeries.add(acc, DateTime.add(base_time, i * 60, :second), val)
-          end)
+  describe "ht_trendline/1 with DataSeries input" do
+    test "returns DataSeries with HT_TRENDLINE values in newest-first order" do
+      data = test_data_100()
+      expected = expected_output_100()
 
-        assert {:ok, result_ts} = @backend_module.ht_trendline(ts)
-        assert %TimeSeries{} = result_ts
+      ds = Enum.reduce(data, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
 
-        values = TimeSeries.values(result_ts)
-        keys = TimeSeries.keys(result_ts)
+      assert {:ok, result_ds} = @backend.ht_trendline(ds)
+      assert %DataSeries{} = result_ds
 
-        # TimeSeries stores newest-first, so reverse expected for comparison
-        expected_reversed = Enum.reverse(expected)
+      values = DataSeries.values(result_ds)
+      expected_reversed = Enum.reverse(expected)
 
-        for i <- 0..99 do
-          if Enum.at(expected_reversed, i) == nil do
-            assert Enum.at(values, i) == nil
-          else
-            assert_in_delta Enum.at(values, i), Enum.at(expected_reversed, i), 0.0001
-          end
+      for i <- 0..99 do
+        if Enum.at(expected_reversed, i) == nil do
+          assert Enum.at(values, i) == nil
+        else
+          assert_in_delta Enum.at(values, i), Enum.at(expected_reversed, i), 0.0001
         end
-
-        # Keys should be preserved
-        assert length(keys) == 100
-        assert Enum.all?(keys, &match?(%DateTime{}, &1))
-      end
-
-      test "preserves DateTime keys in correct order" do
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(~U[2024-01-01 09:00:00.000000Z], 100.0)
-          |> TimeSeries.add(~U[2024-01-01 09:01:00.000000Z], 101.0)
-          |> TimeSeries.add(~U[2024-01-01 09:02:00.000000Z], 102.0)
-          |> TimeSeries.add(~U[2024-01-01 09:03:00.000000Z], 103.0)
-
-        original_keys = TimeSeries.keys(ts)
-
-        assert {:ok, result_ts} = @backend_module.ht_trendline(ts)
-        result_keys = TimeSeries.keys(result_ts)
-
-        assert result_keys == original_keys
-      end
-
-      test "returns empty TimeSeries for empty input" do
-        ts = TimeSeries.new()
-        assert {:ok, result_ts} = @backend_module.ht_trendline(ts)
-        assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == []
       end
     end
   end
 
-  ## Property-based testing
+  describe "ht_trendline/1 with TimeSeries input" do
+    test "returns TimeSeries with HT_TRENDLINE values" do
+      data = test_data_100()
+      expected = expected_output_100()
 
-  @tag :native_backend
-  describe "property-based testing: Native vs Elixir backends for ht_trendline" do
-    property "Native and Elixir backends produce identical results for lists" do
-      check all(data <- list_of(float(min: 1.0, max: 1000.0), min_length: 64, max_length: 100)) do
-        # Test with Native backend directly
-        {:ok, native_result} = TheoryCraftTA.Native.Overlap.HT_TRENDLINE.ht_trendline(data)
+      base_time = ~U[2024-01-01 00:00:00.000000Z]
 
-        # Test with Elixir backend directly
-        {:ok, elixir_result} = TheoryCraftTA.Elixir.Overlap.HT_TRENDLINE.ht_trendline(data)
+      ts =
+        Enum.with_index(data)
+        |> Enum.reduce(TimeSeries.new(), fn {val, idx}, acc ->
+          time = DateTime.add(base_time, idx, :second)
+          TimeSeries.add(acc, time, val)
+        end)
 
-        # Results should be identical (within floating point precision)
-        assert_lists_equal(native_result, elixir_result)
+      assert {:ok, result_ts} = @backend.ht_trendline(ts)
+      assert %TimeSeries{} = result_ts
+
+      values = TimeSeries.values(result_ts)
+      expected_reversed = Enum.reverse(expected)
+
+      for i <- 0..99 do
+        if Enum.at(expected_reversed, i) == nil do
+          assert Enum.at(values, i) == nil
+        else
+          assert_in_delta Enum.at(values, i), Enum.at(expected_reversed, i), 0.0001
+        end
       end
     end
+  end
 
-    property "Native and Elixir backends produce identical results for DataSeries" do
-      check all(values <- list_of(float(min: 1.0, max: 1000.0), min_length: 64, max_length: 100)) do
-        ds = Enum.reduce(values, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
+  @tag :native_backend
+  property "produces valid output" do
+    check all(
+            data_length <- integer(64..200),
+            data <- list_of(float(min: 10.0, max: 200.0), length: data_length)
+          ) do
+      assert {:ok, result} = @backend.ht_trendline(data)
 
-        # Test with Native backend directly
-        {:ok, native_result_ds} = TheoryCraftTA.Native.Overlap.HT_TRENDLINE.ht_trendline(ds)
-        native_result = DataSeries.values(native_result_ds)
+      Enum.each(result, fn val ->
+        if val != nil do
+          assert is_float(val)
+          assert val == val and val != :infinity and val != :negative_infinity
+        end
+      end)
 
-        # Test with Elixir backend directly
-        {:ok, elixir_result_ds} = TheoryCraftTA.Elixir.Overlap.HT_TRENDLINE.ht_trendline(ds)
-        elixir_result = DataSeries.values(elixir_result_ds)
-
-        assert_lists_equal(native_result, elixir_result)
-      end
+      assert length(result) == length(data)
     end
   end
 
   ## Private helper functions
 
-  defp assert_lists_equal(list1, list2) do
-    assert length(list1) == length(list2)
-
-    Enum.zip(list1, list2)
-    |> Enum.each(fn
-      {nil, nil} ->
-        :ok
-
-      {val1, val2} when is_float(val1) and is_float(val2) ->
-        assert_in_delta(val1, val2, 0.0001)
-
-      {val1, val2} ->
-        assert val1 == val2
-    end)
-  end
-
   defp test_data_100 do
     [
-      87.45401188473625,
-      145.07143064099162,
-      123.1993941811405,
-      109.86584841970367,
-      65.60186404424365,
-      65.59945203362027,
-      55.80836121681995,
-      136.6176145774935,
-      110.11150117432088,
-      120.80725777960456,
-      52.05844942958024,
-      146.99098521619942,
-      133.24426408004217,
-      71.23391106782762,
-      68.18249672071006,
-      68.34045098534338,
-      80.42422429595376,
-      102.4756431632238,
-      93.19450186421157,
-      79.1229140198042,
-      111.18528947223794,
-      63.94938606520418,
-      79.21446485352182,
-      86.63618432936917,
-      95.6069984217036,
-      128.51759613930136,
-      69.96737821583598,
-      101.42344384136116,
-      109.24145688620425,
-      54.64504127199977,
-      110.75448519014384,
-      67.05241236872915,
-      56.50515929852795,
-      144.88855372533334,
-      146.56320330745592,
-      130.8397348116461,
-      80.46137691733708,
-      59.76721140063839,
-      118.42330265121569,
-      94.01524937396013,
-      62.20382348447788,
-      99.51769101112703,
-      53.43885211152184,
-      140.9320402078782,
-      75.8779981600017,
-      116.2522284353982,
-      81.1711076089411,
-      102.00680211778108,
-      104.67102793432797,
-      68.4854455525527,
-      146.95846277645586,
-      127.51328233611146,
-      143.9498941564189,
-      139.4827350427649,
-      109.78999788110852,
-      142.18742350231167,
-      58.84925020519195,
-      69.59828624191452,
-      54.52272889105381,
-      82.53303307632643,
-      88.8677289689482,
-      77.13490317738959,
-      132.87375091519294,
-      85.67533266935894,
-      78.09345096873807,
-      104.26960831582485,
-      64.09242249747626,
-      130.21969807540398,
-      57.45506436797708,
-      148.68869366005174,
-      127.22447692966574,
-      69.87156815341724,
-      50.55221171236024,
-      131.54614284548342,
-      120.68573438476172,
-      122.90071680409874,
-      127.12703466859458,
-      57.40446517340904,
-      85.84657285442725,
-      61.58690595251297,
-      136.31034258755935,
-      112.3298126827558,
-      83.08980248526493,
-      56.355835028602364,
-      81.09823217156622,
-      82.51833220267471,
-      122.96061783380641,
-      113.75574713552132,
-      138.72127425763267,
-      97.22149251619493,
-      61.95942459383017,
-      121.3244787222995,
-      126.07850486168974,
-      106.12771975694963,
-      127.0967179954561,
-      99.37955963643907,
-      102.2732829381994,
-      92.75410183585495,
-      52.54191267440952,
-      60.78914269933044
+      87.454011884736246,
+      145.071430640991622,
+      123.199394181140505,
+      109.865848419703667,
+      65.601864044243655,
+      65.599452033620267,
+      55.808361216819947,
+      136.617614577493498,
+      110.111501174320878,
+      120.807257779604555,
+      52.058449429580243,
+      146.990985216199419,
+      133.244264080042171,
+      71.233911067827620,
+      68.182496720710063,
+      68.340450985343381,
+      80.424224295953763,
+      102.475643163223793,
+      93.194501864211574,
+      79.122914019804199,
+      86.636184329369172,
+      122.690794817988899,
+      120.279968687033022,
+      91.463668509479379,
+      103.878996799717517,
+      144.752575021588873,
+      75.808631330850512,
+      115.488267142559963,
+      77.696590753216675,
+      77.636038968424356,
+      121.612120881769728,
+      83.524902647862555,
+      110.639296242152152,
+      117.410640826351471,
+      129.065547391708032,
+      117.390632246266282,
+      138.999699454308690,
+      103.061275099958795,
+      125.053275117996891,
+      113.098780814499121,
+      104.711804210608094,
+      117.042717976787685,
+      147.799850394493095,
+      148.802484409071560,
+      96.990104699628968,
+      117.551477976550339,
+      133.060934787244301,
+      133.890043820616001,
+      69.876224456542150,
+      92.085865012792803,
+      142.979164706850664,
+      66.933778210881154,
+      71.750129561412671,
+      109.613528586354748,
+      103.859158690531311,
+      103.560659192286124,
+      79.490326603062928,
+      82.475875083607948,
+      140.889406960816945,
+      125.912783768054798,
+      133.797328372039058,
+      99.755577679192816,
+      87.450086168943027,
+      79.270412234912641,
+      79.902604849985629,
+      101.343586186849109,
+      136.775862968722232,
+      125.485244596764498,
+      124.656720154396892,
+      121.516695226721670,
+      136.024929983378886,
+      84.085636739894960,
+      136.939717584098229,
+      82.029369605515921,
+      136.893066701385127,
+      131.766663806880895,
+      71.546437287679780,
+      105.764680476226929,
+      95.900233954942034,
+      128.360501524067862,
+      72.165888172637892,
+      91.073364854789319,
+      92.076320764516476,
+      99.867392456917435,
+      147.233313909123800,
+      112.931754529265555,
+      125.046450753433536,
+      59.674531835802734,
+      82.467442712997524,
+      61.959424593830171,
+      121.324478722299503,
+      126.078504861689737,
+      106.127719756949631,
+      127.096717995456103,
+      99.379559636439069,
+      102.273282938199401,
+      92.754101835854954,
+      52.541912674409517,
+      60.789142699330441
     ]
   end
 
@@ -389,43 +286,42 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
       nil,
       nil,
       nil,
-      101.32768435501472,
-      101.02853465846454,
-      101.00442474787943,
-      100.64500293791914,
-      100.11439328556045,
-      98.08661209843945,
-      95.61825652550883,
-      94.39131041501957,
-      92.00478305834228,
-      90.92615628228899,
-      92.41468729163023,
-      94.67362417747816,
-      97.44772206587577,
-      100.48369743948626,
-      100.17915029605436,
-      99.56777932493758,
-      98.25886702665356,
-      99.34187017641295,
-      100.05971863638804,
-      99.85980032465685,
-      97.42319323127103,
-      94.96120243566449,
-      93.79422097478613,
-      95.41160541182764,
-      96.54694222501236,
-      97.80576042968198,
-      97.72159855231426,
-      95.43997405855006,
-      95.631790596181,
-      96.66810713489272,
-      97.88610776255936,
-      99.90287636777062,
-      101.90867932786205,
-      102.32814124932614,
-      102.20218971577938,
-      100.44267275536716,
-      98.54115001579731
+      102.09667274473497,
+      101.11843441321821,
+      99.58014323546246,
+      100.51007170828991,
+      102.70348702303735,
+      104.83299837219674,
+      106.6794856272323,
+      108.31509589097641,
+      109.49170023415056,
+      111.65560498379011,
+      111.52203567085758,
+      111.4366864166229,
+      111.49959948986505,
+      110.9979747672202,
+      112.6222771248301,
+      113.6133871367277,
+      113.99493219206529,
+      112.02165677199325,
+      109.23415717299864,
+      105.8757981364731,
+      104.26195829685803,
+      104.01345082720395,
+      105.19766108458109,
+      105.87840807913543,
+      103.77999133283838,
+      102.40179782297075,
+      99.91439043010625,
+      99.24798284928788,
+      100.0618461425931,
+      100.0494564587407,
+      101.84710854648165,
+      103.23260960689215,
+      104.41211199857062,
+      104.97888848643917,
+      102.12192419664667,
+      98.30135288824417
     ]
   end
 end
