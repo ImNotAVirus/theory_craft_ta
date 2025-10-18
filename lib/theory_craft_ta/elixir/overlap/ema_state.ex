@@ -1,4 +1,4 @@
-defmodule TheoryCraftTA.Elixir.OverlapState.EMA do
+defmodule TheoryCraftTA.Elixir.Overlap.EMAState do
   @moduledoc false
 
   # Internal state struct for EMA calculation.
@@ -28,10 +28,10 @@ defmodule TheoryCraftTA.Elixir.OverlapState.EMA do
 
   ## Examples
 
-      iex> TheoryCraftTA.Elixir.OverlapState.EMA.init(14)
-      {:ok, %TheoryCraftTA.Elixir.OverlapState.EMA{period: 14, k: 0.13333333333333333, current_ema: nil, lookback_count: 0, buffer: []}}
+      iex> TheoryCraftTA.Elixir.Overlap.EMAState.init(14)
+      {:ok, %TheoryCraftTA.Elixir.Overlap.EMAState{period: 14, k: 0.13333333333333333, current_ema: nil, lookback_count: 0, buffer: []}}
 
-      iex> TheoryCraftTA.Elixir.OverlapState.EMA.init(1)
+      iex> TheoryCraftTA.Elixir.Overlap.EMAState.init(1)
       {:error, "Invalid period: must be >= 2 for EMA"}
 
   """
@@ -67,11 +67,11 @@ defmodule TheoryCraftTA.Elixir.OverlapState.EMA do
 
   ## Examples
 
-      iex> {:ok, state} = TheoryCraftTA.Elixir.OverlapState.EMA.init(2)
-      iex> {:ok, ema, state2} = TheoryCraftTA.Elixir.OverlapState.EMA.next(state, 100.0, true)
+      iex> {:ok, state} = TheoryCraftTA.Elixir.Overlap.EMAState.init(2)
+      iex> {:ok, ema, state2} = TheoryCraftTA.Elixir.Overlap.EMAState.next(state, 100.0, true)
       iex> ema
       nil
-      iex> {:ok, ema, _state3} = TheoryCraftTA.Elixir.OverlapState.EMA.next(state2, 110.0, true)
+      iex> {:ok, ema, _state3} = TheoryCraftTA.Elixir.Overlap.EMAState.next(state2, 110.0, true)
       iex> ema
       105.0
 

@@ -231,7 +231,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec sma_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate sma_state_init(period), to: Module.concat([@backend, OverlapState, SMA]), as: :init
+  defdelegate sma_state_init(period), to: Module.concat([@backend, Overlap, SMAState]), as: :init
 
   @doc """
   Initialize SMA state for incremental calculations - Bang version.
@@ -287,7 +287,7 @@ defmodule TheoryCraftTA do
   @spec sma_state_next(term(), float(), boolean()) ::
           {:ok, float() | nil, term()} | {:error, String.t()}
   defdelegate sma_state_next(state, value, is_new_bar),
-    to: Module.concat([@backend, OverlapState, SMA]),
+    to: Module.concat([@backend, Overlap, SMAState]),
     as: :next
 
   @doc """
@@ -341,7 +341,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec ema_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate ema_state_init(period), to: Module.concat([@backend, OverlapState, EMA]), as: :init
+  defdelegate ema_state_init(period), to: Module.concat([@backend, Overlap, EMAState]), as: :init
 
   @doc """
   Initialize EMA state for incremental calculations - Bang version.
@@ -398,7 +398,7 @@ defmodule TheoryCraftTA do
   @spec ema_state_next(term(), float(), boolean()) ::
           {:ok, float() | nil, term()} | {:error, String.t()}
   defdelegate ema_state_next(state, value, is_new_bar),
-    to: Module.concat([@backend, OverlapState, EMA]),
+    to: Module.concat([@backend, Overlap, EMAState]),
     as: :next
 
   @doc """
@@ -451,7 +451,7 @@ defmodule TheoryCraftTA do
 
   """
   @spec wma_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate wma_state_init(period), to: Module.concat([@backend, OverlapState, WMA]), as: :init
+  defdelegate wma_state_init(period), to: Module.concat([@backend, Overlap, WMAState]), as: :init
 
   @doc """
   Initialize WMA state for incremental calculations - Bang version.
@@ -506,7 +506,7 @@ defmodule TheoryCraftTA do
   @spec wma_state_next(term(), float(), boolean()) ::
           {:ok, float() | nil, term()} | {:error, String.t()}
   defdelegate wma_state_next(state, value, is_new_bar),
-    to: Module.concat([@backend, OverlapState, WMA]),
+    to: Module.concat([@backend, Overlap, WMAState]),
     as: :next
 
   @doc """

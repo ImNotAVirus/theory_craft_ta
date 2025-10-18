@@ -2,8 +2,8 @@
 #
 # Run with: mix run benchmarks/wma_state_benchmark.exs
 
-alias TheoryCraftTA.Native.OverlapState.WMA, as: NativeWMA
-alias TheoryCraftTA.Elixir.OverlapState.WMA, as: ElixirWMA
+alias TheoryCraftTA.Native.Overlap.WMAState, as: NativeWMA
+alias TheoryCraftTA.Elixir.Overlap.WMAState, as: ElixirWMA
 
 # Test parameters
 num_values = 10_000

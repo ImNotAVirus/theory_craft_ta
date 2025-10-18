@@ -1,8 +1,8 @@
-defmodule TheoryCraftTA.Native.OverlapState.WMA do
+defmodule TheoryCraftTA.Native.Overlap.SMAState do
   @moduledoc """
-  Native (Rust NIF) implementation of stateful WMA calculation.
+  Native (Rust NIF) implementation of stateful SMA calculation.
 
-  Uses Rustler ResourceArc to maintain internal state for streaming WMA calculation.
+  Uses Rustler ResourceArc to maintain internal state for streaming SMA calculation.
   This is useful for real-time tick processing where you need to maintain a sliding
   window of values.
 
@@ -11,32 +11,32 @@ defmodule TheoryCraftTA.Native.OverlapState.WMA do
   ## Usage
 
       # Initialize state (returns ResourceArc reference)
-      {:ok, state} = TheoryCraftTA.Native.OverlapState.WMA.init(14)
+      {:ok, state} = TheoryCraftTA.Native.Overlap.SMAState.init(14)
 
       # Process first bar
-      {:ok, wma1, state2} = TheoryCraftTA.Native.OverlapState.WMA.next(state, 100.0, true)
+      {:ok, sma1, state2} = TheoryCraftTA.Native.Overlap.SMAState.next(state, 100.0, true)
 
       # Process second bar
-      {:ok, wma2, state3} = TheoryCraftTA.Native.OverlapState.WMA.next(state2, 110.0, true)
+      {:ok, sma2, state3} = TheoryCraftTA.Native.Overlap.SMAState.next(state2, 110.0, true)
 
       # Update same bar (multiple ticks)
-      {:ok, wma3, state4} = TheoryCraftTA.Native.OverlapState.WMA.next(state3, 105.0, false)
+      {:ok, sma3, state4} = TheoryCraftTA.Native.Overlap.SMAState.next(state3, 105.0, false)
 
   """
 
   alias TheoryCraftTA.Native
 
   @typedoc """
-  Opaque reference to Rust ResourceArc containing WMA state.
+  Opaque reference to Rust ResourceArc containing SMA state.
   """
   @type t :: reference()
 
   @doc """
-  Initializes a new WMA state.
+  Initializes a new SMA state.
 
   ## Parameters
 
-    - `period` - The WMA period (must be >= 2)
+    - `period` - The SMA period (must be >= 2)
 
   ## Returns
 
@@ -45,33 +45,33 @@ defmodule TheoryCraftTA.Native.OverlapState.WMA do
 
   ## Examples
 
-      iex> {:ok, _state} = TheoryCraftTA.Native.OverlapState.WMA.init(14)
+      iex> {:ok, _state} = TheoryCraftTA.Native.Overlap.SMAState.init(14)
 
   """
   @spec init(pos_integer()) :: {:ok, t()} | {:error, String.t()}
   def init(period) when is_integer(period) do
-    Native.overlap_wma_state_init(period)
+    Native.overlap_sma_state_init(period)
   end
 
   @doc """
-  Calculates the next WMA value with stateful update.
+  Calculates the next SMA value with stateful update.
 
   ## Parameters
 
-    - `state` - Current WMA state (from init or previous next call)
+    - `state` - Current SMA state (from init or previous next call)
     - `value` - New price value
     - `is_new_bar` - true for new bar (APPEND), false for same bar update (UPDATE)
 
   ## Returns
 
-    - `{:ok, wma_value, new_state}` where wma_value is nil during warmup
+    - `{:ok, sma_value, new_state}` where sma_value is nil during warmup
     - `{:error, message}` on error
 
   ## Behavior
 
   - **UPDATE mode** (`is_new_bar = false`): Multiple ticks on same bar
     - Replaces last value in buffer with new value
-    - Recalculates WMA with updated buffer
+    - Recalculates SMA with updated buffer
     - Does NOT increment lookback_count
   - **APPEND mode** (`is_new_bar = true`): New bar started
     - Adds new value to buffer
@@ -80,20 +80,20 @@ defmodule TheoryCraftTA.Native.OverlapState.WMA do
 
   ## Examples
 
-      iex> {:ok, state} = TheoryCraftTA.Native.OverlapState.WMA.init(2)
-      iex> {:ok, wma, state2} = TheoryCraftTA.Native.OverlapState.WMA.next(state, 100.0, true)
-      iex> wma
+      iex> {:ok, state} = TheoryCraftTA.Native.Overlap.SMAState.init(2)
+      iex> {:ok, sma, state2} = TheoryCraftTA.Native.Overlap.SMAState.next(state, 100.0, true)
+      iex> sma
       nil
-      iex> {:ok, wma, _state3} = TheoryCraftTA.Native.OverlapState.WMA.next(state2, 110.0, true)
-      iex> Float.round(wma, 5)
-      106.66667
+      iex> {:ok, sma, _state3} = TheoryCraftTA.Native.Overlap.SMAState.next(state2, 110.0, true)
+      iex> sma
+      105.0
 
   """
   @spec next(t(), float(), boolean()) :: {:ok, float() | nil, t()} | {:error, String.t()}
   def next(state, value, is_new_bar) when is_float(value) and is_boolean(is_new_bar) do
-    case Native.overlap_wma_state_next(state, value, is_new_bar) do
-      {:ok, {wma_value, new_state}} ->
-        {:ok, wma_value, new_state}
+    case Native.overlap_sma_state_next(state, value, is_new_bar) do
+      {:ok, {sma_value, new_state}} ->
+        {:ok, sma_value, new_state}
 
       {:error, _reason} = error ->
         error

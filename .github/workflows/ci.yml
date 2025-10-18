@@ -11,6 +11,7 @@ jobs:
   test:
     name: Test (Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }})
     runs-on: ubuntu-22.04
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     env:
       MIX_ENV: test
       THEORY_CRAFT_TA_BUILD: "1"
@@ -60,6 +61,7 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-22.04
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v4
 

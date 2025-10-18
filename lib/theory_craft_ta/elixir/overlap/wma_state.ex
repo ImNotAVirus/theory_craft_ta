@@ -1,8 +1,8 @@
-defmodule TheoryCraftTA.Elixir.OverlapState.SMA do
+defmodule TheoryCraftTA.Elixir.Overlap.WMAState do
   @moduledoc false
 
-  # Internal state struct for SMA calculation.
-  # Used by Elixir backend for streaming/stateful SMA calculation.
+  # Internal state struct for WMA calculation.
+  # Used by Elixir backend for streaming/stateful WMA calculation.
 
   defstruct [:period, :buffer, :lookback_count]
 
@@ -13,11 +13,11 @@ defmodule TheoryCraftTA.Elixir.OverlapState.SMA do
         }
 
   @doc """
-  Initializes a new SMA state.
+  Initializes a new WMA state.
 
   ## Parameters
 
-    - `period` - The SMA period (must be >= 2)
+    - `period` - The WMA period (must be >= 2)
 
   ## Returns
 
@@ -26,11 +26,11 @@ defmodule TheoryCraftTA.Elixir.OverlapState.SMA do
 
   ## Examples
 
-      iex> TheoryCraftTA.Elixir.OverlapState.SMA.init(14)
-      {:ok, %TheoryCraftTA.Elixir.OverlapState.SMA{period: 14, buffer: [], lookback_count: 0}}
+      iex> TheoryCraftTA.Elixir.Overlap.WMAState.init(14)
+      {:ok, %TheoryCraftTA.Elixir.Overlap.WMAState{period: 14, buffer: [], lookback_count: 0}}
 
-      iex> TheoryCraftTA.Elixir.OverlapState.SMA.init(1)
-      {:error, "Invalid period: must be >= 2 for SMA"}
+      iex> TheoryCraftTA.Elixir.Overlap.WMAState.init(1)
+      {:error, "Invalid period: must be >= 2 for WMA"}
 
   """
   @spec init(integer()) :: {:ok, t()} | {:error, String.t()}
@@ -45,31 +45,31 @@ defmodule TheoryCraftTA.Elixir.OverlapState.SMA do
   end
 
   def init(period) when is_integer(period) do
-    {:error, "Invalid period: must be >= 2 for SMA"}
+    {:error, "Invalid period: must be >= 2 for WMA"}
   end
 
   @doc """
-  Calculates the next SMA value and returns updated state.
+  Calculates the next WMA value and returns updated state.
 
   ## Parameters
 
-    - `state` - Current SMA state
+    - `state` - Current WMA state
     - `value` - New price value
     - `is_new_bar` - true if this is a new bar (APPEND), false if updating current bar (UPDATE)
 
   ## Returns
 
-    - `{:ok, sma_value, new_state}` where sma_value is nil during warmup period
+    - `{:ok, wma_value, new_state}` where wma_value is nil during warmup period
 
   ## Examples
 
-      iex> {:ok, state} = TheoryCraftTA.Elixir.OverlapState.SMA.init(2)
-      iex> {:ok, sma, state2} = TheoryCraftTA.Elixir.OverlapState.SMA.next(state, 100.0, true)
-      iex> sma
+      iex> {:ok, state} = TheoryCraftTA.Elixir.Overlap.WMAState.init(2)
+      iex> {:ok, wma, state2} = TheoryCraftTA.Elixir.Overlap.WMAState.next(state, 100.0, true)
+      iex> wma
       nil
-      iex> {:ok, sma, _state3} = TheoryCraftTA.Elixir.OverlapState.SMA.next(state2, 110.0, true)
-      iex> sma
-      105.0
+      iex> {:ok, wma, _state3} = TheoryCraftTA.Elixir.Overlap.WMAState.next(state2, 110.0, true)
+      iex> Float.round(wma, 5)
+      106.66667
 
   """
   @spec next(t(), float(), boolean()) :: {:ok, float() | nil, t()}
@@ -103,11 +103,27 @@ defmodule TheoryCraftTA.Elixir.OverlapState.SMA do
       new_state = %{state | buffer: new_buffer, lookback_count: new_lookback}
       {:ok, nil, new_state}
     else
-      sum = Enum.sum(new_buffer)
-      sma = sum / state.period
+      wma = calculate_weighted_average(new_buffer, state.period)
 
       new_state = %{state | buffer: new_buffer, lookback_count: new_lookback}
-      {:ok, sma, new_state}
+      {:ok, wma, new_state}
     end
+  end
+
+  ## Private functions
+
+  defp calculate_weighted_average(buffer, period) do
+    # Calculate sum of weights: 1 + 2 + 3 + ... + period = period * (period + 1) / 2
+    sum_weights = period * (period + 1) / 2
+
+    # Calculate weighted sum: buffer[0] * 1 + buffer[1] * 2 + ... + buffer[period-1] * period
+    weighted_sum =
+      buffer
+      |> Enum.with_index(1)
+      |> Enum.reduce(0.0, fn {value, weight}, acc ->
+        acc + value * weight
+      end)
+
+    weighted_sum / sum_weights
   end
 end

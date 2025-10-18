@@ -2,11 +2,11 @@ defmodule TheoryCraftTA.State.SMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraftTA.Elixir.OverlapState.SMA, as: ElixirSMA
-  alias TheoryCraftTA.Native.OverlapState.SMA, as: NativeSMA
+  alias TheoryCraftTA.Elixir.Overlap.SMAState, as: ElixirSMA
+  alias TheoryCraftTA.Native.Overlap.SMAState, as: NativeSMA
 
-  doctest TheoryCraftTA.Elixir.OverlapState.SMA
-  doctest TheoryCraftTA.Native.OverlapState.SMA
+  doctest TheoryCraftTA.Elixir.Overlap.SMAState
+  doctest TheoryCraftTA.Native.Overlap.SMAState
 
   @backends [
     {ElixirSMA, "Elixir"},

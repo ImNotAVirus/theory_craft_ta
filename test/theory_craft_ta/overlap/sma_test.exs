@@ -6,6 +6,8 @@ defmodule TheoryCraftTA.SMATest do
 
   doctest TheoryCraftTA.Native.Overlap.SMA
   doctest TheoryCraftTA.Elixir.Overlap.SMA
+  doctest TheoryCraftTA.Native.Overlap.SMAState
+  doctest TheoryCraftTA.Elixir.Overlap.SMAState
 
   @backends %{
     native: TheoryCraftTA.Native.Overlap.SMA,

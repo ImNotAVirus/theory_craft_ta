@@ -1,5 +1,5 @@
-alias TheoryCraftTA.Elixir.OverlapState.SMA, as: ElixirSMA
-alias TheoryCraftTA.Native.OverlapState.SMA, as: NativeSMA
+alias TheoryCraftTA.Elixir.Overlap.SMAState, as: ElixirSMA
+alias TheoryCraftTA.Native.Overlap.SMAState, as: NativeSMA
 
 # Generate test data of various sizes
 small_data = Enum.map(1..100, &(&1 * 1.0))

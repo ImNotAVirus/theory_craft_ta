@@ -6,6 +6,8 @@ defmodule TheoryCraftTA.EMATest do
 
   doctest TheoryCraftTA.Native.Overlap.EMA
   doctest TheoryCraftTA.Elixir.Overlap.EMA
+  doctest TheoryCraftTA.Native.Overlap.EMAState
+  doctest TheoryCraftTA.Elixir.Overlap.EMAState
 
   @backends %{
     native: TheoryCraftTA.Native.Overlap.EMA,

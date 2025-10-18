@@ -6,6 +6,8 @@ defmodule TheoryCraftTA.WMATest do
 
   doctest TheoryCraftTA.Native.Overlap.WMA
   doctest TheoryCraftTA.Elixir.Overlap.WMA
+  doctest TheoryCraftTA.Native.Overlap.WMAState
+  doctest TheoryCraftTA.Elixir.Overlap.WMAState
 
   @backends %{
     native: TheoryCraftTA.Native.Overlap.WMA,

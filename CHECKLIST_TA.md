@@ -34,8 +34,8 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 
 ## Phase 3: State tests
 
-- Create `test/theory_craft_ta/{type}_state/{indicator}_test.exs`
-- Follow structure from existing tests (e.g. `test/theory_craft_ta/overlap_state/wma_test.exs`)
+- Create `test/theory_craft_ta/{type}/{indicator}_state_test.exs`
+- Follow structure from existing tests (e.g. `test/theory_craft_ta/overlap/wma_state_test.exs`)
 - Test init (valid/invalid periods)
 - Test APPEND mode (warmup, correct calculation)
 - Test UPDATE mode (update last value)
@@ -52,12 +52,13 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 
 ## Phase 5: Elixir state implementation
 
-- Create `lib/theory_craft_ta/elixir/{type}_state/{indicator}.ex`
-- Follow structure from existing state implementations (e.g. `lib/theory_craft_ta/elixir/overlap_state/wma.ex`)
+- Create `lib/theory_craft_ta/elixir/{type}/{indicator}_state.ex`
+- Follow structure from existing state implementations (e.g. `lib/theory_craft_ta/elixir/overlap/wma_state.ex`)
+- Define module `TheoryCraftTA.Elixir.{Type}.{INDICATOR}State` with @moduledoc
 - Define struct with necessary fields (period, buffer, lookback_count, etc.)
 - Implement `init` with parameters specific to the indicator
 - Implement `next/3` (state, value, is_new_bar) with APPEND/UPDATE logic
-- Format: `mix format lib/theory_craft_ta/elixir/{type}_state/{indicator}.ex`
+- Format: `mix format lib/theory_craft_ta/elixir/{type}/{indicator}_state.ex`
 
 ## Phase 6: Rust NIF batch implementation
 
@@ -88,7 +89,8 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 - Create `lib/theory_craft_ta/native/{type}/{indicator}.ex` (follow existing wrappers like `lib/theory_craft_ta/native/overlap/wma.ex`)
   - Define module `TheoryCraftTA.Native.{Type}.{INDICATOR}` with @moduledoc
   - Add wrapper function that calls `Native.{type}_{indicator}` and uses `Helpers.rebuild_same_type`
-- Create `lib/theory_craft_ta/native/{type}_state/{indicator}.ex` (follow existing state wrappers)
+- Create `lib/theory_craft_ta/native/{type}/{indicator}_state.ex` (follow existing state wrappers like `lib/theory_craft_ta/native/overlap/wma_state.ex`)
+  - Define module `TheoryCraftTA.Native.{Type}.{INDICATOR}State` with @moduledoc
 - Format modified files
 
 ## Phase 9: Public API
@@ -103,7 +105,7 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
   - `{indicator}_state_next/3`
   - `{indicator}_state_next!/3`
 - Use `Module.concat([@backend, {Type}, {INDICATOR}])` for batch delegation
-- Use `Module.concat([@backend, {Type}State, {INDICATOR}])` for state delegation
+- Use `Module.concat([@backend, {Type}, {INDICATOR}State])` for state delegation
 - Follow existing functions
 - Format: `mix format lib/theory_craft_ta.ex`
 
@@ -113,6 +115,8 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 - Update aliases to use `TheoryCraftTA.Native.{Type}.{INDICATOR}` and `TheoryCraftTA.Elixir.{Type}.{INDICATOR}`
   - Example: `alias TheoryCraftTA.Native.Overlap.WMA, as: NativeWMA`
 - Create `benchmarks/{indicator}_state_benchmark.exs` (follow existing state benchmarks like `wma_state_benchmark.exs`)
+- Update state aliases to use `TheoryCraftTA.Native.{Type}.{INDICATOR}State` and `TheoryCraftTA.Elixir.{Type}.{INDICATOR}State`
+  - Example: `alias TheoryCraftTA.Native.Overlap.WMAState, as: NativeWMA`
 
 ## Phase 11: Verification
 
