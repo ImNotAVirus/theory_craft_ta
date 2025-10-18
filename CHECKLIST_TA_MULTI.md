@@ -10,6 +10,11 @@ This checklist describes the steps to add a new technical indicator in parallel 
 
 ## Phase 0: Git Setup (NEW - for parallel work)
 
+**CRITICAL RULES** (apply to ALL phases):
+- ✅ **ALWAYS** use forward slashes `/` in ALL paths (git, file operations, etc.)
+- ✅ **ALWAYS** clone to `.tmp/theory_craft_ta_{indicator}/` (NOT `../.tmp/`)
+- ✅ **ALWAYS** use `.tools/run_ci.cmd` for running tests (sets up PATH correctly)
+
 **IMPORTANT**: To enable parallel development of multiple indicators without conflicts:
 
 1. **Clone repository in temporary directory**:
@@ -18,7 +23,7 @@ This checklist describes the steps to add a new technical indicator in parallel 
    cd .tmp/theory_craft_ta_{indicator}
    ```
    - Uses HTTPS for authentication (credentials already configured)
-   - Clone in `.tmp/` directory to isolate work
+   - Clone in `.tmp/` directory (relative to project root) to isolate work
 
 2. **Checkout base branch and create feature branch**:
    ```bash
@@ -148,8 +153,13 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 
 ## Phase 11: Verification
 
-**IMPORTANT**: Always use forward slashes `/` in paths, NEVER backslashes `\`.
+**CRITICAL RULES**:
+- ✅ **ALWAYS** use forward slashes `/` in paths, **NEVER** backslashes `\`
+- ✅ **ALWAYS** use `.tools/run_ci.cmd` script (sets up PATH, cargo, cmake, etc.)
+- ✅ **NEVER** run `mix ci` directly (PATH won't be setup correctly)
+- ✅ Work in `.tmp/theory_craft_ta_{indicator}/` (NOT `../.tmp/`)
 
+**Verification Steps**:
 - Compile and test: `.tools/run_ci.cmd` → check 0 warnings, 0 failures
 - Run benchmarks:
   - `.tools/run_benchmark.cmd benchmarks/{indicator}_benchmark.exs`
