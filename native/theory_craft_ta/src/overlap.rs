@@ -385,11 +385,10 @@ pub fn overlap_midpoint(env: Env, data: Vec<f64>, period: i32) -> NifResult<Term
     ok!(env, result)
 }
 
-
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_midprice(env: Env, high: Vec<f64>, low: Vec<f64>, period: i32) -> NifResult<Term> {
-    use crate::overlap_ffi::{TA_MIDPRICE, TA_MIDPRICE_Lookback};
+    use crate::overlap_ffi::{TA_MIDPRICE_Lookback, TA_MIDPRICE};
 
     // Empty data → return empty (like Python)
     if high.is_empty() && low.is_empty() {
@@ -564,7 +563,6 @@ pub fn overlap_trima(env: Env, _data: Vec<f64>, _period: i32) -> NifResult<Term>
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
-
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
