@@ -1,15 +1,13 @@
-# Benchmark comparing Native (Rust NIF) vs Pure Elixir implementations for HT_TRENDLINE
+# Benchmark for HT_TRENDLINE (Native-only)
 #
 # Run with: mix run benchmarks/ht_trendline_benchmark.exs
 
 alias TheoryCraftTA.Native.Overlap.HT_TRENDLINE, as: NativeHT
-alias TheoryCraftTA.Elixir.Overlap.HT_TRENDLINE, as: ElixirHT
 
 # Generate test data (HT_TRENDLINE requires at least 64 points)
 data_sizes = [100, 1_000, 10_000]
 
-IO.puts("\n=== HT_TRENDLINE Batch Benchmark ===\n")
-IO.puts("Comparing Native (Rust NIF) vs Pure Elixir implementations\n")
+IO.puts("\n=== HT_TRENDLINE Batch Benchmark (Native-only) ===\n")
 
 for data_size <- data_sizes do
   IO.puts("Data size: #{data_size}")
@@ -18,8 +16,7 @@ for data_size <- data_sizes do
 
   Benchee.run(
     %{
-      "Native (Rust)" => fn -> NativeHT.ht_trendline(data) end,
-      "Elixir" => fn -> ElixirHT.ht_trendline(data) end
+      "Native (Rust)" => fn -> NativeHT.ht_trendline(data) end
     },
     time: 2,
     memory_time: 1,

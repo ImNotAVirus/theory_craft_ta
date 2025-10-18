@@ -1411,21 +1411,16 @@ pub fn overlap_t3_state_next(
     )
 }
 
+#[allow(non_camel_case_types)]
 /// State for HT_TRENDLINE calculation
 pub struct HT_TRENDLINEState {
-    lookback_count: i32,
     buffer: Vec<f64>,
-    prev_trend: Option<f64>,
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_ht_trendline_state_init(env: Env) -> NifResult<Term> {
-    let state = HT_TRENDLINEState {
-        lookback_count: 0,
-        buffer: Vec::new(),
-        prev_trend: None,
-    };
+    let state = HT_TRENDLINEState { buffer: Vec::new() };
 
     let resource = ResourceArc::new(state);
     ok!(env, resource)
@@ -1439,13 +1434,9 @@ pub fn overlap_ht_trendline_state_next(
     value: f64,
     is_new_bar: bool,
 ) -> NifResult<Term> {
-    let state = &*state_arc;
+    use crate::overlap_ffi::{TA_HT_TRENDLINE_Lookback, TA_HT_TRENDLINE};
 
-    let new_lookback = if is_new_bar {
-        state.lookback_count + 1
-    } else {
-        state.lookback_count
-    };
+    let state = &*state_arc;
 
     // Update buffer
     let mut new_buffer = state.buffer.clone();
@@ -1456,43 +1447,44 @@ pub fn overlap_ht_trendline_state_next(
         new_buffer[last_idx] = value;
     }
 
-    // HT_TRENDLINE lookback is 63
-    const LOOKBACK: i32 = 63;
+    // Get lookback period from ta-lib
+    let lookback = unsafe { TA_HT_TRENDLINE_Lookback() };
+    let data_len = new_buffer.len() as i32;
 
-    // Warmup phase: need 63 bars before we can calculate HT_TRENDLINE
-    if new_lookback <= LOOKBACK {
-        let new_state = HT_TRENDLINEState {
-            lookback_count: new_lookback,
-            buffer: new_buffer,
-            prev_trend: state.prev_trend,
-        };
+    // Warmup phase: need 64 bars before we can calculate
+    if data_len <= lookback {
+        let new_state = HT_TRENDLINEState { buffer: new_buffer };
         let new_resource = ResourceArc::new(new_state);
         let result = (rustler::types::atom::nil(), new_resource);
         return ok!(env, result);
     }
 
-    // Simplified Hilbert Transform calculation for state-based processing
-    // Uses exponential smoothing with adaptive weighting
-    let buffer_length = new_buffer.len();
-    let window_size = std::cmp::min(buffer_length, (LOOKBACK + 10) as usize);
-    let window = &new_buffer[buffer_length - window_size..];
+    // Call ta-lib batch function with full buffer
+    let mut out_beg_idx: i32 = 0;
+    let mut out_nb_element: i32 = 0;
+    let mut out_real: Vec<f64> = vec![0.0; data_len as usize];
 
-    // Calculate smoothed average of recent data
-    let sum: f64 = window.iter().sum();
-    let smoothed = sum / (window.len() as f64);
-
-    // Apply exponential smoothing to extract trend
-    let alpha = 0.33;
-    let ht_value = match state.prev_trend {
-        None => smoothed,
-        Some(prev) => alpha * smoothed + (1.0 - alpha) * prev,
+    let ret_code = unsafe {
+        TA_HT_TRENDLINE(
+            0,
+            data_len - 1,
+            new_buffer.as_ptr(),
+            &mut out_beg_idx as *mut i32,
+            &mut out_nb_element as *mut i32,
+            out_real.as_mut_ptr(),
+        )
     };
 
-    let new_state = HT_TRENDLINEState {
-        lookback_count: new_lookback,
-        buffer: new_buffer,
-        prev_trend: Some(ht_value),
+    check_ret_code!(env, ret_code, "HT_TRENDLINE state");
+
+    // Extract the last calculated value
+    let ht_value = if out_nb_element > 0 {
+        out_real[(out_nb_element - 1) as usize]
+    } else {
+        return error!(env, "No output from HT_TRENDLINE");
     };
+
+    let new_state = HT_TRENDLINEState { buffer: new_buffer };
 
     let new_resource = ResourceArc::new(new_state);
     let result = (ht_value, new_resource);
