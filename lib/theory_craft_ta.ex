@@ -598,8 +598,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.sma_state_init(3)
-      iex> {:ok, nil, state2} = TheoryCraftTA.sma_state_next(state, 100.0, true)
-      iex> {:ok, nil, state3} = TheoryCraftTA.sma_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.sma_state_next(state, 100.0, true)
+      iex> {:ok, nil, state3} = TheoryCraftTA.sma_state_next(_state, 110.0, true)
       iex> {:ok, sma, _state4} = TheoryCraftTA.sma_state_next(state3, 120.0, true)
       iex> sma
       110.0
@@ -629,8 +629,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.sma_state_init!(3)
-      iex> {nil, state2} = TheoryCraftTA.sma_state_next!(state, 100.0, true)
-      iex> {nil, state3} = TheoryCraftTA.sma_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.sma_state_next!(state, 100.0, true)
+      iex> {nil, state3} = TheoryCraftTA.sma_state_next!(_state, 110.0, true)
       iex> {sma, _state4} = TheoryCraftTA.sma_state_next!(state3, 120.0, true)
       iex> sma
       110.0
@@ -710,8 +710,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.ema_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.ema_state_next(state, 100.0, true)
-      iex> {:ok, ema, _state3} = TheoryCraftTA.ema_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.ema_state_next(state, 100.0, true)
+      iex> {:ok, ema, _state3} = TheoryCraftTA.ema_state_next(_state, 110.0, true)
       iex> ema
       105.0
 
@@ -740,8 +740,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.ema_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.ema_state_next!(state, 100.0, true)
-      iex> {ema, _state3} = TheoryCraftTA.ema_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.ema_state_next!(state, 100.0, true)
+      iex> {ema, _state3} = TheoryCraftTA.ema_state_next!(_state, 110.0, true)
       iex> ema
       105.0
 
@@ -818,8 +818,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.wma_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.wma_state_next(state, 100.0, true)
-      iex> {:ok, wma, _state3} = TheoryCraftTA.wma_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.wma_state_next(state, 100.0, true)
+      iex> {:ok, wma, _state3} = TheoryCraftTA.wma_state_next(_state, 110.0, true)
       iex> Float.round(wma, 5)
       106.66667
 
@@ -848,8 +848,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.wma_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.wma_state_next!(state, 100.0, true)
-      iex> {wma, _state3} = TheoryCraftTA.wma_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.wma_state_next!(state, 100.0, true)
+      iex> {wma, _state3} = TheoryCraftTA.wma_state_next!(_state, 110.0, true)
       iex> Float.round(wma, 5)
       106.66667
 
@@ -930,8 +930,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.dema_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.dema_state_next(state, 100.0, true)
-      iex> {:ok, nil, state3} = TheoryCraftTA.dema_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.dema_state_next(state, 100.0, true)
+      iex> {:ok, nil, state3} = TheoryCraftTA.dema_state_next(_state, 110.0, true)
       iex> {:ok, dema, _state4} = TheoryCraftTA.dema_state_next(state3, 120.0, true)
       iex> dema
       120.0
@@ -961,8 +961,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.dema_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.dema_state_next!(state, 100.0, true)
-      iex> {nil, state3} = TheoryCraftTA.dema_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.dema_state_next!(state, 100.0, true)
+      iex> {nil, state3} = TheoryCraftTA.dema_state_next!(_state, 110.0, true)
       iex> {dema, _state4} = TheoryCraftTA.dema_state_next!(state3, 120.0, true)
       iex> dema
       120.0
@@ -1044,8 +1044,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.tema_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.tema_state_next(state, 100.0, true)
-      iex> {:ok, nil, state3} = TheoryCraftTA.tema_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.tema_state_next(state, 100.0, true)
+      iex> {:ok, nil, state3} = TheoryCraftTA.tema_state_next(_state, 110.0, true)
       iex> {:ok, nil, state4} = TheoryCraftTA.tema_state_next(state3, 120.0, true)
       iex> {:ok, tema, _state5} = TheoryCraftTA.tema_state_next(state4, 130.0, true)
       iex> tema
@@ -1076,8 +1076,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.tema_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.tema_state_next!(state, 100.0, true)
-      iex> {nil, state3} = TheoryCraftTA.tema_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.tema_state_next!(state, 100.0, true)
+      iex> {nil, state3} = TheoryCraftTA.tema_state_next!(_state, 110.0, true)
       iex> {nil, state4} = TheoryCraftTA.tema_state_next!(state3, 120.0, true)
       iex> {tema, _state5} = TheoryCraftTA.tema_state_next!(state4, 130.0, true)
       iex> tema
@@ -1160,8 +1160,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.trima_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.trima_state_next(state, 100.0, true)
-      iex> {:ok, trima, _state3} = TheoryCraftTA.trima_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.trima_state_next(state, 100.0, true)
+      iex> {:ok, trima, _state3} = TheoryCraftTA.trima_state_next(_state, 110.0, true)
       iex> trima
       105.0
 
@@ -1190,8 +1190,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.trima_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.trima_state_next!(state, 100.0, true)
-      iex> {trima, _state3} = TheoryCraftTA.trima_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.trima_state_next!(state, 100.0, true)
+      iex> {trima, _state3} = TheoryCraftTA.trima_state_next!(_state, 110.0, true)
       iex> trima
       105.0
 
@@ -1274,8 +1274,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.t3_state_init(2, 0.7)
-      iex> {:ok, nil, state2} = TheoryCraftTA.t3_state_next(state, 100.0, true)
-      iex> {:ok, nil, state3} = TheoryCraftTA.t3_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.t3_state_next(state, 100.0, true)
+      iex> {:ok, nil, state3} = TheoryCraftTA.t3_state_next(_state, 110.0, true)
       iex> {:ok, t3, _state4} = TheoryCraftTA.t3_state_next(state3, 120.0, true)
       iex> is_nil(t3)
       true
@@ -1305,8 +1305,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.t3_state_init!(2, 0.7)
-      iex> {nil, state2} = TheoryCraftTA.t3_state_next!(state, 100.0, true)
-      iex> {nil, state3} = TheoryCraftTA.t3_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.t3_state_next!(state, 100.0, true)
+      iex> {nil, state3} = TheoryCraftTA.t3_state_next!(_state, 110.0, true)
       iex> {t3, _state4} = TheoryCraftTA.t3_state_next!(state3, 120.0, true)
       iex> is_nil(t3)
       true
@@ -1381,8 +1381,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.midpoint_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.midpoint_state_next(state, 100.0, true)
-      iex> {:ok, midpoint, _state3} = TheoryCraftTA.midpoint_state_next(state2, 110.0, true)
+      iex> {:ok, nil, _state} = TheoryCraftTA.midpoint_state_next(state, 100.0, true)
+      iex> {:ok, midpoint, _state3} = TheoryCraftTA.midpoint_state_next(_state, 110.0, true)
       iex> midpoint
       105.0
 
@@ -1411,8 +1411,8 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.midpoint_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.midpoint_state_next!(state, 100.0, true)
-      iex> {midpoint, _state3} = TheoryCraftTA.midpoint_state_next!(state2, 110.0, true)
+      iex> {nil, _state} = TheoryCraftTA.midpoint_state_next!(state, 100.0, true)
+      iex> {midpoint, _state3} = TheoryCraftTA.midpoint_state_next!(_state, 110.0, true)
       iex> midpoint
       105.0
 
@@ -1482,7 +1482,7 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> {:ok, state} = TheoryCraftTA.ht_trendline_state_init()
-      iex> {:ok, ht, state2} = TheoryCraftTA.ht_trendline_state_next(state, 100.0, true)
+      iex> {:ok, ht, _state} = TheoryCraftTA.ht_trendline_state_next(state, 100.0, true)
       iex> ht
       nil
 
@@ -1511,7 +1511,7 @@ defmodule TheoryCraftTA do
 
   ## Examples
       iex> state = TheoryCraftTA.ht_trendline_state_init!()
-      iex> {nil, state2} = TheoryCraftTA.ht_trendline_state_next!(state, 100.0, true)
+      iex> {nil, _state} = TheoryCraftTA.ht_trendline_state_next!(state, 100.0, true)
 
   """
   @spec ht_trendline_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
