@@ -1,6 +1,6 @@
 alias TheoryCraft.{DataSeries, TimeSeries}
-alias TheoryCraftTA.Native.Overlap, as: NativeTA
-alias TheoryCraftTA.Elixir.Overlap, as: ElixirTA
+alias TheoryCraftTA.Native.Overlap.SMA, as: NativeSMA
+alias TheoryCraftTA.Elixir.Overlap.SMA, as: ElixirSMA
 
 # Generate test data of various sizes
 small_data = Enum.map(1..100, &(&1 * 1.0))
@@ -36,114 +36,16 @@ large_ts =
     TimeSeries.add(acc, DateTime.add(base_time, idx, :second), val)
   end)
 
-# Prepare data for sma_next benchmarks (append mode)
-small_prev_data = Enum.take(small_data, 99)
-medium_prev_data = Enum.take(medium_data, 999)
-large_prev_data = Enum.take(large_data, 9999)
-
-small_prev_ds =
-  Enum.reduce(small_prev_data, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
-
-medium_prev_ds =
-  Enum.reduce(medium_prev_data, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
-
-large_prev_ds =
-  Enum.reduce(large_prev_data, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
-
-small_prev_ts =
-  Enum.with_index(small_prev_data)
-  |> Enum.reduce(TimeSeries.new(), fn {val, idx}, acc ->
-    TimeSeries.add(acc, DateTime.add(base_time, idx, :second), val)
-  end)
-
-medium_prev_ts =
-  Enum.with_index(medium_prev_data)
-  |> Enum.reduce(TimeSeries.new(), fn {val, idx}, acc ->
-    TimeSeries.add(acc, DateTime.add(base_time, idx, :second), val)
-  end)
-
-large_prev_ts =
-  Enum.with_index(large_prev_data)
-  |> Enum.reduce(TimeSeries.new(), fn {val, idx}, acc ->
-    TimeSeries.add(acc, DateTime.add(base_time, idx, :second), val)
-  end)
-
-{:ok, small_prev_list_native} = NativeTA.sma(small_prev_data, 10)
-{:ok, small_prev_list_elixir} = ElixirTA.sma(small_prev_data, 10)
-{:ok, medium_prev_list_native} = NativeTA.sma(medium_prev_data, 10)
-{:ok, medium_prev_list_elixir} = ElixirTA.sma(medium_prev_data, 10)
-{:ok, large_prev_list_native} = NativeTA.sma(large_prev_data, 10)
-{:ok, large_prev_list_elixir} = ElixirTA.sma(large_prev_data, 10)
-
-{:ok, small_prev_ds_native} = NativeTA.sma(small_prev_ds, 10)
-{:ok, small_prev_ds_elixir} = ElixirTA.sma(small_prev_ds, 10)
-{:ok, medium_prev_ds_native} = NativeTA.sma(medium_prev_ds, 10)
-{:ok, medium_prev_ds_elixir} = ElixirTA.sma(medium_prev_ds, 10)
-{:ok, large_prev_ds_native} = NativeTA.sma(large_prev_ds, 10)
-{:ok, large_prev_ds_elixir} = ElixirTA.sma(large_prev_ds, 10)
-
-{:ok, small_prev_ts_native} = NativeTA.sma(small_prev_ts, 10)
-{:ok, small_prev_ts_elixir} = ElixirTA.sma(small_prev_ts, 10)
-{:ok, medium_prev_ts_native} = NativeTA.sma(medium_prev_ts, 10)
-{:ok, medium_prev_ts_elixir} = ElixirTA.sma(medium_prev_ts, 10)
-{:ok, large_prev_ts_native} = NativeTA.sma(large_prev_ts, 10)
-{:ok, large_prev_ts_elixir} = ElixirTA.sma(large_prev_ts, 10)
-
-# Prepare data for sma_next benchmarks (update mode)
-small_updated_data = List.replace_at(small_data, -1, 999.0)
-medium_updated_data = List.replace_at(medium_data, -1, 999.0)
-large_updated_data = List.replace_at(large_data, -1, 999.0)
-
-small_updated_ds = %DataSeries{small_ds | data: [999.0 | tl(small_ds.data)]}
-medium_updated_ds = %DataSeries{medium_ds | data: [999.0 | tl(medium_ds.data)]}
-large_updated_ds = %DataSeries{large_ds | data: [999.0 | tl(large_ds.data)]}
-
-small_updated_ts = %TimeSeries{
-  small_ts
-  | data: %DataSeries{small_ts.data | data: [999.0 | tl(small_ts.data.data)]}
-}
-
-medium_updated_ts = %TimeSeries{
-  medium_ts
-  | data: %DataSeries{medium_ts.data | data: [999.0 | tl(medium_ts.data.data)]}
-}
-
-large_updated_ts = %TimeSeries{
-  large_ts
-  | data: %DataSeries{large_ts.data | data: [999.0 | tl(large_ts.data.data)]}
-}
-
-{:ok, small_current_list_native} = NativeTA.sma(small_data, 10)
-{:ok, small_current_list_elixir} = ElixirTA.sma(small_data, 10)
-{:ok, medium_current_list_native} = NativeTA.sma(medium_data, 10)
-{:ok, medium_current_list_elixir} = ElixirTA.sma(medium_data, 10)
-{:ok, large_current_list_native} = NativeTA.sma(large_data, 10)
-{:ok, large_current_list_elixir} = ElixirTA.sma(large_data, 10)
-
-{:ok, small_current_ds_native} = NativeTA.sma(small_ds, 10)
-{:ok, small_current_ds_elixir} = ElixirTA.sma(small_ds, 10)
-{:ok, medium_current_ds_native} = NativeTA.sma(medium_ds, 10)
-{:ok, medium_current_ds_elixir} = ElixirTA.sma(medium_ds, 10)
-{:ok, large_current_ds_native} = NativeTA.sma(large_ds, 10)
-{:ok, large_current_ds_elixir} = ElixirTA.sma(large_ds, 10)
-
-{:ok, small_current_ts_native} = NativeTA.sma(small_ts, 10)
-{:ok, small_current_ts_elixir} = ElixirTA.sma(small_ts, 10)
-{:ok, medium_current_ts_native} = NativeTA.sma(medium_ts, 10)
-{:ok, medium_current_ts_elixir} = ElixirTA.sma(medium_ts, 10)
-{:ok, large_current_ts_native} = NativeTA.sma(large_ts, 10)
-{:ok, large_current_ts_elixir} = ElixirTA.sma(large_ts, 10)
-
 IO.puts("\n=== Small Dataset (100 items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.sma(small_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.sma(small_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.sma(small_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.sma(small_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.sma(small_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.sma(small_ts, 10) end
+    "Native List" => fn -> NativeSMA.sma(small_data, 10) end,
+    "Elixir List" => fn -> ElixirSMA.sma(small_data, 10) end,
+    "Native DataSeries" => fn -> NativeSMA.sma(small_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirSMA.sma(small_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeSMA.sma(small_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirSMA.sma(small_ts, 10) end
   },
   warmup: 2,
   time: 5,
@@ -155,12 +57,12 @@ IO.puts("\n=== Medium Dataset (1K items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.sma(medium_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.sma(medium_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.sma(medium_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.sma(medium_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.sma(medium_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.sma(medium_ts, 10) end
+    "Native List" => fn -> NativeSMA.sma(medium_data, 10) end,
+    "Elixir List" => fn -> ElixirSMA.sma(medium_data, 10) end,
+    "Native DataSeries" => fn -> NativeSMA.sma(medium_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirSMA.sma(medium_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeSMA.sma(medium_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirSMA.sma(medium_ts, 10) end
   },
   warmup: 2,
   time: 5,
@@ -172,90 +74,12 @@ IO.puts("\n=== Large Dataset (10K items) ===\n")
 
 Benchee.run(
   %{
-    "Native List" => fn -> NativeTA.sma(large_data, 10) end,
-    "Elixir List" => fn -> ElixirTA.sma(large_data, 10) end,
-    "Native DataSeries" => fn -> NativeTA.sma(large_ds, 10) end,
-    "Elixir DataSeries" => fn -> ElixirTA.sma(large_ds, 10) end,
-    "Native TimeSeries" => fn -> NativeTA.sma(large_ts, 10) end,
-    "Elixir TimeSeries" => fn -> ElixirTA.sma(large_ts, 10) end
-  },
-  warmup: 2,
-  time: 5,
-  memory_time: 2,
-  formatters: [Benchee.Formatters.Console]
-)
-
-IO.puts("\n=== SMA_NEXT - Small Dataset (100 items) - APPEND MODE ===\n")
-
-Benchee.run(
-  %{
-    "Native List" => fn -> NativeTA.sma_next(small_data, 10, small_prev_list_native) end,
-    "Elixir List" => fn -> ElixirTA.sma_next(small_data, 10, small_prev_list_elixir) end
-  },
-  warmup: 2,
-  time: 5,
-  memory_time: 2,
-  formatters: [Benchee.Formatters.Console]
-)
-
-IO.puts("\n=== SMA_NEXT - Medium Dataset (1K items) - APPEND MODE ===\n")
-
-Benchee.run(
-  %{
-    "Native List" => fn -> NativeTA.sma_next(medium_data, 10, medium_prev_list_native) end,
-    "Elixir List" => fn -> ElixirTA.sma_next(medium_data, 10, medium_prev_list_elixir) end
-  },
-  warmup: 2,
-  time: 5,
-  memory_time: 2,
-  formatters: [Benchee.Formatters.Console]
-)
-
-IO.puts("\n=== SMA_NEXT - Large Dataset (10K items) - APPEND MODE ===\n")
-
-Benchee.run(
-  %{
-    "Native List" => fn -> NativeTA.sma_next(large_data, 10, large_prev_list_native) end,
-    "Elixir List" => fn -> ElixirTA.sma_next(large_data, 10, large_prev_list_elixir) end
-  },
-  warmup: 2,
-  time: 5,
-  memory_time: 2,
-  formatters: [Benchee.Formatters.Console]
-)
-
-IO.puts("\n=== SMA_NEXT - Small Dataset (100 items) - UPDATE MODE ===\n")
-
-Benchee.run(
-  %{
-    "Native List" => fn -> NativeTA.sma_next(small_updated_data, 10, small_current_list_native) end,
-    "Elixir List" => fn -> ElixirTA.sma_next(small_updated_data, 10, small_current_list_elixir) end
-  },
-  warmup: 2,
-  time: 5,
-  memory_time: 2,
-  formatters: [Benchee.Formatters.Console]
-)
-
-IO.puts("\n=== SMA_NEXT - Medium Dataset (1K items) - UPDATE MODE ===\n")
-
-Benchee.run(
-  %{
-    "Native List" => fn -> NativeTA.sma_next(medium_updated_data, 10, medium_current_list_native) end,
-    "Elixir List" => fn -> ElixirTA.sma_next(medium_updated_data, 10, medium_current_list_elixir) end
-  },
-  warmup: 2,
-  time: 5,
-  memory_time: 2,
-  formatters: [Benchee.Formatters.Console]
-)
-
-IO.puts("\n=== SMA_NEXT - Large Dataset (10K items) - UPDATE MODE ===\n")
-
-Benchee.run(
-  %{
-    "Native List" => fn -> NativeTA.sma_next(large_updated_data, 10, large_current_list_native) end,
-    "Elixir List" => fn -> ElixirTA.sma_next(large_updated_data, 10, large_current_list_elixir) end
+    "Native List" => fn -> NativeSMA.sma(large_data, 10) end,
+    "Elixir List" => fn -> ElixirSMA.sma(large_data, 10) end,
+    "Native DataSeries" => fn -> NativeSMA.sma(large_ds, 10) end,
+    "Elixir DataSeries" => fn -> ElixirSMA.sma(large_ds, 10) end,
+    "Native TimeSeries" => fn -> NativeSMA.sma(large_ts, 10) end,
+    "Elixir TimeSeries" => fn -> ElixirSMA.sma(large_ts, 10) end
   },
   warmup: 2,
   time: 5,

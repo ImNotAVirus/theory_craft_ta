@@ -40,4 +40,89 @@ extern "C" {
     ) -> i32;
 
     pub fn TA_SMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_EMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_EMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_WMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_WMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_DEMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_DEMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_TEMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_TEMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_TRIMA(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_TRIMA_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_MIDPOINT(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_MIDPOINT_Lookback(opt_in_time_period: i32) -> i32;
+
+    pub fn TA_T3(
+        start_idx: i32,
+        end_idx: i32,
+        in_real: *const f64,
+        opt_in_time_period: i32,
+        opt_in_vfactor: f64,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_T3_Lookback(opt_in_time_period: i32, opt_in_vfactor: f64) -> i32;
 }

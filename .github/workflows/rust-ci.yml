@@ -14,6 +14,7 @@ jobs:
   lint-rust:
     name: Lint Rust
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     strategy:
       matrix:
         manifest:

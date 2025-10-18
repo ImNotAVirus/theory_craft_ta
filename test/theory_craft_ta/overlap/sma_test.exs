@@ -1,12 +1,17 @@
-defmodule TheoryCraftTA.OverlapTest do
+defmodule TheoryCraftTA.SMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
   alias TheoryCraft.{DataSeries, TimeSeries}
 
+  doctest TheoryCraftTA.Native.Overlap.SMA
+  doctest TheoryCraftTA.Elixir.Overlap.SMA
+  doctest TheoryCraftTA.Native.Overlap.SMAState
+  doctest TheoryCraftTA.Elixir.Overlap.SMAState
+
   @backends %{
-    native: TheoryCraftTA.Native.Overlap,
-    elixir: TheoryCraftTA.Elixir.Overlap
+    native: TheoryCraftTA.Native.Overlap.SMA,
+    elixir: TheoryCraftTA.Elixir.Overlap.SMA
   }
 
   ## Tests for each backend
@@ -302,173 +307,6 @@ defmodule TheoryCraftTA.OverlapTest do
     end
   end
 
-  ## Tests for sma_next (incremental calculation)
-
-  for {backend_name, backend_module} <- @backends do
-    @backend_module backend_module
-
-    describe "#{backend_name} - sma_next/3 with list input" do
-      test "appends new value when input size is prev size + 1" do
-        input = [1.0, 2.0, 3.0, 4.0, 5.0]
-        prev = [nil, 1.5, 2.5, 3.5]
-
-        assert {:ok, result} = @backend_module.sma_next(input, 2, prev)
-        assert result == [nil, 1.5, 2.5, 3.5, 4.5]
-      end
-
-      test "updates last value when input size equals prev size" do
-        input = [1.0, 2.0, 3.0, 4.0, 5.5]
-        prev = [nil, 1.5, 2.5, 3.5, 4.5]
-
-        assert {:ok, result} = @backend_module.sma_next(input, 2, prev)
-        assert result == [nil, 1.5, 2.5, 3.5, 4.75]
-      end
-
-      test "updates nil value when insufficient data" do
-        input = [1.0, 2.0]
-        prev = [nil]
-
-        assert {:ok, result} = @backend_module.sma_next(input, 5, prev)
-        assert result == [nil, nil]
-      end
-
-      test "returns error when input size is more than prev size + 1" do
-        input = [1.0, 2.0, 3.0, 4.0, 5.0]
-        prev = [nil, 1.5]
-
-        assert {:error, reason} = @backend_module.sma_next(input, 2, prev)
-        assert reason =~ "Input size must be equal to or one more than prev size"
-      end
-    end
-
-    describe "#{backend_name} - sma_next/3 with DataSeries input" do
-      test "appends new value" do
-        ds =
-          DataSeries.new()
-          |> DataSeries.add(1.0)
-          |> DataSeries.add(2.0)
-          |> DataSeries.add(3.0)
-          |> DataSeries.add(4.0)
-          |> DataSeries.add(5.0)
-
-        prev_ds =
-          DataSeries.new()
-          |> DataSeries.add(nil)
-          |> DataSeries.add(1.5)
-          |> DataSeries.add(2.5)
-          |> DataSeries.add(3.5)
-
-        assert {:ok, result_ds} = @backend_module.sma_next(ds, 2, prev_ds)
-        assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == [4.5, 3.5, 2.5, 1.5, nil]
-      end
-
-      test "updates last value" do
-        ds =
-          DataSeries.new()
-          |> DataSeries.add(1.0)
-          |> DataSeries.add(2.0)
-          |> DataSeries.add(3.0)
-          |> DataSeries.add(4.0)
-          |> DataSeries.add(5.5)
-
-        prev_ds =
-          DataSeries.new()
-          |> DataSeries.add(nil)
-          |> DataSeries.add(1.5)
-          |> DataSeries.add(2.5)
-          |> DataSeries.add(3.5)
-          |> DataSeries.add(4.5)
-
-        assert {:ok, result_ds} = @backend_module.sma_next(ds, 2, prev_ds)
-        assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == [4.75, 3.5, 2.5, 1.5, nil]
-      end
-    end
-
-    describe "#{backend_name} - sma_next/3 with TimeSeries input" do
-      test "appends new value with new key" do
-        base_time = ~U[2024-01-01 00:00:00.000000Z]
-
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), 1.0)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 2.0)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 3.0)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 4.0)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 5.0)
-
-        prev_ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), nil)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 1.5)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 2.5)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 3.5)
-
-        assert {:ok, result_ts} = @backend_module.sma_next(ts, 2, prev_ts)
-        assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == [4.5, 3.5, 2.5, 1.5, nil]
-        assert length(TimeSeries.keys(result_ts)) == 5
-      end
-
-      test "updates last value preserving keys" do
-        base_time = ~U[2024-01-01 00:00:00.000000Z]
-
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), 1.0)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 2.0)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 3.0)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 4.0)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 5.5)
-
-        prev_ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), nil)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 1.5)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 2.5)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 3.5)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 4.5)
-
-        assert {:ok, result_ts} = @backend_module.sma_next(ts, 2, prev_ts)
-        assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == [4.75, 3.5, 2.5, 1.5, nil]
-        assert length(TimeSeries.keys(result_ts)) == 5
-      end
-    end
-  end
-
-  ## Public API tests for sma_next
-
-  describe "TheoryCraftTA.sma_next/3 - public API" do
-    test "delegates to configured backend" do
-      input = [1.0, 2.0, 3.0, 4.0, 5.0]
-      prev = [nil, 1.5, 2.5, 3.5]
-
-      assert {:ok, result} = TheoryCraftTA.sma_next(input, 2, prev)
-      assert result == [nil, 1.5, 2.5, 3.5, 4.5]
-    end
-  end
-
-  describe "TheoryCraftTA.sma_next!/3 - bang version" do
-    test "returns result directly on success" do
-      input = [1.0, 2.0, 3.0, 4.0, 5.0]
-      prev = [nil, 1.5, 2.5, 3.5]
-
-      result = TheoryCraftTA.sma_next!(input, 2, prev)
-      assert result == [nil, 1.5, 2.5, 3.5, 4.5]
-    end
-
-    test "raises RuntimeError on error" do
-      input = [1.0, 2.0, 3.0, 4.0, 5.0]
-      prev = [nil, 1.5]
-
-      assert_raise RuntimeError, ~r/SMA_next error/, fn ->
-        TheoryCraftTA.sma_next!(input, 2, prev)
-      end
-    end
-  end
-
   ## Property-based testing
 
   describe "property-based testing: Native vs Elixir backends for sma" do
@@ -481,10 +319,10 @@ defmodule TheoryCraftTA.OverlapTest do
         data = if length(data) < period, do: data ++ List.duplicate(50.0, period), else: data
 
         # Test with Native backend directly
-        {:ok, native_result} = TheoryCraftTA.Native.Overlap.sma(data, period)
+        {:ok, native_result} = TheoryCraftTA.Native.Overlap.SMA.sma(data, period)
 
         # Test with Elixir backend directly
-        {:ok, elixir_result} = TheoryCraftTA.Elixir.Overlap.sma(data, period)
+        {:ok, elixir_result} = TheoryCraftTA.Elixir.Overlap.SMA.sma(data, period)
 
         # Results should be identical (within floating point precision)
         assert_lists_equal(native_result, elixir_result)
@@ -499,56 +337,12 @@ defmodule TheoryCraftTA.OverlapTest do
         ds = Enum.reduce(values, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
 
         # Test with Native backend directly
-        {:ok, native_result_ds} = TheoryCraftTA.Native.Overlap.sma(ds, period)
+        {:ok, native_result_ds} = TheoryCraftTA.Native.Overlap.SMA.sma(ds, period)
         native_result = DataSeries.values(native_result_ds)
 
         # Test with Elixir backend directly
-        {:ok, elixir_result_ds} = TheoryCraftTA.Elixir.Overlap.sma(ds, period)
+        {:ok, elixir_result_ds} = TheoryCraftTA.Elixir.Overlap.SMA.sma(ds, period)
         elixir_result = DataSeries.values(elixir_result_ds)
-
-        assert_lists_equal(native_result, elixir_result)
-      end
-    end
-  end
-
-  describe "property-based testing: Native vs Elixir backends for sma_next" do
-    property "Native and Elixir backends produce identical results for append mode" do
-      check all(
-              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 3, max_length: 50),
-              period <- integer(2..5)
-            ) do
-        prev_len = max(1, length(data) - 1)
-        prev_data = Enum.take(data, prev_len)
-
-        {:ok, prev_sma_native} = TheoryCraftTA.Native.Overlap.sma(prev_data, period)
-        {:ok, prev_sma_elixir} = TheoryCraftTA.Elixir.Overlap.sma(prev_data, period)
-
-        {:ok, native_result} =
-          TheoryCraftTA.Native.Overlap.sma_next(data, period, prev_sma_native)
-
-        {:ok, elixir_result} =
-          TheoryCraftTA.Elixir.Overlap.sma_next(data, period, prev_sma_elixir)
-
-        assert_lists_equal(native_result, elixir_result)
-      end
-    end
-
-    property "Native and Elixir backends produce identical results for update mode" do
-      check all(
-              base_data <- list_of(float(min: 1.0, max: 1000.0), min_length: 3, max_length: 50),
-              period <- integer(2..5),
-              update_val <- float(min: 1.0, max: 1000.0)
-            ) do
-        {:ok, prev_sma_native} = TheoryCraftTA.Native.Overlap.sma(base_data, period)
-        {:ok, prev_sma_elixir} = TheoryCraftTA.Elixir.Overlap.sma(base_data, period)
-
-        updated_data = List.replace_at(base_data, -1, update_val)
-
-        {:ok, native_result} =
-          TheoryCraftTA.Native.Overlap.sma_next(updated_data, period, prev_sma_native)
-
-        {:ok, elixir_result} =
-          TheoryCraftTA.Elixir.Overlap.sma_next(updated_data, period, prev_sma_elixir)
 
         assert_lists_equal(native_result, elixir_result)
       end
