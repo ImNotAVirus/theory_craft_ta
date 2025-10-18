@@ -113,6 +113,19 @@ extern "C" {
 
     pub fn TA_MIDPOINT_Lookback(opt_in_time_period: i32) -> i32;
 
+    pub fn TA_MIDPRICE(
+        start_idx: i32,
+        end_idx: i32,
+        in_high: *const f64,
+        in_low: *const f64,
+        opt_in_time_period: i32,
+        out_beg_idx: *mut i32,
+        out_nb_element: *mut i32,
+        out_real: *mut f64,
+    ) -> i32;
+
+    pub fn TA_MIDPRICE_Lookback(opt_in_time_period: i32) -> i32;
+
     pub fn TA_T3(
         start_idx: i32,
         end_idx: i32,
