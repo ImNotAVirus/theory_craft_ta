@@ -294,7 +294,7 @@ After PR is merged or closed:
 
 3. **Delete temporary clone** (optional):
    ```bash
-   rmdir /s /q .tmp\theory_craft_ta_{indicator}
+   rm -fr .tmp/theory_craft_ta_{indicator}
    ```
 
 ## Notes for Parallel Development
