@@ -1509,6 +1509,9 @@ pub fn overlap_midprice_state_next(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
 pub fn overlap_t3_state_init(env: Env, _period: i32, _vfactor: f64) -> NifResult<Term> {
     error!(
         env,
