@@ -169,15 +169,10 @@ defmodule TheoryCraftTA.KAMATest do
 
       test "handles period equal to data length" do
         data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        # Python result with period=5: [nan nan nan nan nan]
+        # KAMA needs period+1 values, so with 5 values all are nil
         assert {:ok, result} = @backend_module.kama(data, 5)
-
-        # All values before last should be nil
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert Enum.at(result, 2) == nil
-        assert Enum.at(result, 3) == nil
-        # Last value should be calculated
-        assert is_float(Enum.at(result, 4))
+        assert result == [nil, nil, nil, nil, nil]
       end
     end
 
@@ -306,8 +301,8 @@ defmodule TheoryCraftTA.KAMATest do
 
   ## Property-based testing
 
-  @tag :native_backend
   describe "property-based testing: Native vs Elixir backends for kama" do
+    @tag :native_backend
     property "Native and Elixir backends produce identical results for lists" do
       check all(
               data <- list_of(float(min: 1.0, max: 1000.0), min_length: 2, max_length: 100),
@@ -327,6 +322,7 @@ defmodule TheoryCraftTA.KAMATest do
       end
     end
 
+    @tag :native_backend
     property "Native and Elixir backends produce identical results for DataSeries" do
       check all(
               values <- list_of(float(min: 1.0, max: 1000.0), min_length: 5, max_length: 50),

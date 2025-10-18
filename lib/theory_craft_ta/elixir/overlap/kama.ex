@@ -30,7 +30,7 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMA do
   """
   @spec kama(TheoryCraftTA.source(), integer()) ::
           {:ok, TheoryCraftTA.source()} | {:error, String.t()}
-  def kama(data, period) do
+  def kama(data, period) when is_integer(period) do
     list_data = Helpers.to_list_and_reverse(data)
 
     if length(list_data) == 0 do
@@ -61,14 +61,29 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMA do
       fastest_sc = 2.0 / 3.0
       slowest_sc = 2.0 / 31.0
 
-      # Initialize KAMA with the value at lookback position
-      initial_kama = Enum.at(data, lookback)
+      # Calculate first KAMA using value at lookback-1 as previous
+      prev_kama_init = Enum.at(data, lookback - 1)
+      first_price = Enum.at(data, lookback)
+
+      # Calculate first KAMA value
+      window = Enum.slice(data, 0, period + 1)
+      change = abs(Enum.at(window, period) - Enum.at(window, 0))
+
+      volatility =
+        window
+        |> Enum.chunk_every(2, 1, :discard)
+        |> Enum.map(fn [a, b] -> abs(b - a) end)
+        |> Enum.sum()
+
+      er = if volatility == 0.0, do: 0.0, else: change / volatility
+      sc = :math.pow(er * (fastest_sc - slowest_sc) + slowest_sc, 2)
+      first_kama = prev_kama_init + sc * (first_price - prev_kama_init)
 
       {_final_kama, kama_values} =
         data
         |> Enum.drop(lookback + 1)
         |> Enum.with_index(lookback + 1)
-        |> Enum.reduce({initial_kama, [initial_kama]}, fn {price, idx}, {prev_kama, acc} ->
+        |> Enum.reduce({first_kama, [first_kama]}, fn {price, idx}, {prev_kama, acc} ->
           # Calculate Efficiency Ratio (ER)
           window = Enum.slice(data, idx - period, period + 1)
           change = abs(Enum.at(window, period) - Enum.at(window, 0))
