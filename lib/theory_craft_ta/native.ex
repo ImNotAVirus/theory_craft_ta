@@ -36,6 +36,10 @@ defmodule TheoryCraftTA.Native do
   def overlap_ema(_data, _period), do: error()
   def overlap_wma(_data, _period), do: error()
   def overlap_dema(_data, _period), do: error()
+  def overlap_tema(_data, _period), do: error()
+  def overlap_trima(_data, _period), do: error()
+  def overlap_t3(_data, _period, _vfactor), do: error()
+  def overlap_midpoint(_data, _period), do: error()
 
   # State-based functions
   def overlap_sma_state_init(_period), do: error()
@@ -46,6 +50,14 @@ defmodule TheoryCraftTA.Native do
   def overlap_wma_state_next(_state, _value, _is_new_bar), do: error()
   def overlap_dema_state_init(_period), do: error()
   def overlap_dema_state_next(_state, _value, _is_new_bar), do: error()
+  def overlap_tema_state_init(_period), do: error()
+  def overlap_tema_state_next(_state, _value, _is_new_bar), do: error()
+  def overlap_trima_state_init(_period), do: error()
+  def overlap_trima_state_next(_state, _value, _is_new_bar), do: error()
+  def overlap_t3_state_init(_period, _vfactor), do: error()
+  def overlap_t3_state_next(_state, _value, _is_new_bar), do: error()
+  def overlap_midpoint_state_init(_period), do: error()
+  def overlap_midpoint_state_next(_state, _value, _is_new_bar), do: error()
 
   ## Private functions
 

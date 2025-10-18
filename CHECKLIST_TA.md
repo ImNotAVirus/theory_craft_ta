@@ -120,6 +120,8 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 
 ## Phase 11: Verification
 
+**IMPORTANT**: Always use forward slashes `/` in paths, NEVER backslashes `\`.
+
 - Compile and test: `.tools/run_ci.cmd` → check 0 warnings, 0 failures
 - Run benchmarks:
   - `.tools/run_benchmark.cmd benchmarks/{indicator}_benchmark.exs`
