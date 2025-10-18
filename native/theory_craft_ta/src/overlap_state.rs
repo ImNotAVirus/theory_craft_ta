@@ -1288,3 +1288,107 @@ pub fn overlap_t3_state_next(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
     )
 }
+
+#[allow(non_camel_case_types)]
+/// State for HT_TRENDLINE calculation
+pub struct HT_TRENDLINEState {
+    buffer: Vec<f64>,
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_ht_trendline_state_init(env: Env) -> NifResult<Term> {
+    let state = HT_TRENDLINEState { buffer: Vec::new() };
+
+    let resource = ResourceArc::new(state);
+    ok!(env, resource)
+}
+
+#[cfg(has_talib)]
+#[rustler::nif]
+pub fn overlap_ht_trendline_state_next(
+    env: Env,
+    state_arc: ResourceArc<HT_TRENDLINEState>,
+    value: f64,
+    is_new_bar: bool,
+) -> NifResult<Term> {
+    use crate::overlap_ffi::{TA_HT_TRENDLINE_Lookback, TA_HT_TRENDLINE};
+
+    let state = &*state_arc;
+
+    // Update buffer
+    let mut new_buffer = state.buffer.clone();
+    if is_new_bar || new_buffer.is_empty() {
+        new_buffer.push(value);
+    } else {
+        let last_idx = new_buffer.len() - 1;
+        new_buffer[last_idx] = value;
+    }
+
+    // Get lookback period from ta-lib
+    let lookback = unsafe { TA_HT_TRENDLINE_Lookback() };
+    let data_len = new_buffer.len() as i32;
+
+    // Warmup phase: need 64 bars before we can calculate
+    if data_len <= lookback {
+        let new_state = HT_TRENDLINEState { buffer: new_buffer };
+        let new_resource = ResourceArc::new(new_state);
+        let result = (rustler::types::atom::nil(), new_resource);
+        return ok!(env, result);
+    }
+
+    // Call ta-lib batch function with full buffer
+    let mut out_beg_idx: i32 = 0;
+    let mut out_nb_element: i32 = 0;
+    let mut out_real: Vec<f64> = vec![0.0; data_len as usize];
+
+    let ret_code = unsafe {
+        TA_HT_TRENDLINE(
+            0,
+            data_len - 1,
+            new_buffer.as_ptr(),
+            &mut out_beg_idx as *mut i32,
+            &mut out_nb_element as *mut i32,
+            out_real.as_mut_ptr(),
+        )
+    };
+
+    check_ret_code!(env, ret_code, "HT_TRENDLINE state");
+
+    // Extract the last calculated value
+    let ht_value = if out_nb_element > 0 {
+        out_real[(out_nb_element - 1) as usize]
+    } else {
+        return error!(env, "No output from HT_TRENDLINE");
+    };
+
+    let new_state = HT_TRENDLINEState { buffer: new_buffer };
+
+    let new_resource = ResourceArc::new(new_state);
+    let result = (ht_value, new_resource);
+    ok!(env, result)
+}
+
+// Stubs when ta-lib is NOT available
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_ht_trendline_state_init(env: Env) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
+
+#[cfg(not(has_talib))]
+#[rustler::nif]
+pub fn overlap_ht_trendline_state_next(
+    env: Env,
+    _state: Term,
+    _value: f64,
+    _is_new_bar: bool,
+) -> NifResult<Term> {
+    error!(
+        env,
+        "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
+    )
+}
