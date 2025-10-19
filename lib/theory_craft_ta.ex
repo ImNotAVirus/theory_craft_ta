@@ -48,6 +48,9 @@ defmodule TheoryCraftTA do
   defdelegate t3(data, period, vfactor), to: TheoryCraftTA.Overlap.T3
   defdelegate midpoint(data, period), to: TheoryCraftTA.Overlap.MIDPOINT
 
+  defdelegate sar(high, low, acceleration \\ 0.02, maximum \\ 0.20),
+    to: TheoryCraftTA.Overlap.SAR
+
   ## State indicators - Delegates
 
   defdelegate sma_state_init(period), to: TheoryCraftTA.Overlap.SMA, as: :init
@@ -78,6 +81,14 @@ defmodule TheoryCraftTA do
 
   defdelegate midpoint_state_next(value, is_new_bar, state),
     to: TheoryCraftTA.Overlap.MIDPOINT,
+    as: :next
+
+  defdelegate sar_state_init(acceleration \\ 0.02, maximum \\ 0.20),
+    to: TheoryCraftTA.Overlap.SAR,
+    as: :init
+
+  defdelegate sar_state_next(state, high, low, is_new_bar),
+    to: TheoryCraftTA.Overlap.SAR,
     as: :next
 
   ## Batch indicators - Bang functions
@@ -188,112 +199,22 @@ defmodule TheoryCraftTA do
   def midpoint_state_next!(value, is_new_bar, state),
     do: unwrap_next!(midpoint_state_next(value, is_new_bar, state), "MIDPOINT")
 
-  @doc """
-  Initialize SAR state for incremental calculations.
+  @doc "Parabolic SAR. See `sar/4` for details."
+  @spec sar!(source(), source(), float(), float()) :: source()
+  def sar!(high, low, acceleration \\ 0.02, maximum \\ 0.20),
+    do: unwrap_batch!(sar(high, low, acceleration, maximum), "SAR")
 
-  Creates a new SAR state that can be updated incrementally with each new high/low bar.
+  ## State indicators - Bang functions
 
-  ## Parameters
-    - `acceleration` - Acceleration Factor (default: 0.02)
-    - `maximum` - Maximum Acceleration Factor (default: 0.20)
-
-  ## Returns
-    - `{:ok, state}` - Initial SAR state
-    - `{:error, reason}` if parameters are invalid
-
-  ## Examples
-      iex> {:ok, state} = TheoryCraftTA.sar_state_init()
-      iex> is_reference(state)
-      true
-
-  """
-  @spec sar_state_init(float(), float()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate sar_state_init(acceleration \\ 0.02, maximum \\ 0.20),
-    to: Module.concat([@backend, Overlap, SARState]),
-    as: :init
-
-  @doc """
-  Initialize SAR state - Bang version.
-
-  Same as `sar_state_init/2` but raises an exception instead of returning an error tuple.
-
-  ## Parameters
-    - `acceleration` - Acceleration Factor (default: 0.02)
-    - `maximum` - Maximum Acceleration Factor (default: 0.20)
-
-  ## Returns
-    - `state` - Initial SAR state
-
-  ## Raises
-    - `RuntimeError` if parameters are invalid
-
-  ## Examples
-      iex> state = TheoryCraftTA.sar_state_init!()
-      iex> is_reference(state)
-      true
-
-  """
+  @doc "Initialize SAR state. See `sar_state_init/2` for details."
   @spec sar_state_init!(float(), float()) :: term()
-  def sar_state_init!(acceleration \\ 0.02, maximum \\ 0.20) do
-    unwrap_init!(sar_state_init(acceleration, maximum), "SAR")
-  end
+  def sar_state_init!(acceleration \\ 0.02, maximum \\ 0.20),
+    do: unwrap_init!(sar_state_init(acceleration, maximum), "SAR")
 
-  @doc """
-  Process next high/low bar with SAR state.
-
-  ## Parameters
-    - `state` - Current SAR state (from `sar_state_init/2` or previous `sar_state_next/4`)
-    - `high` - High price for this bar
-    - `low` - Low price for this bar
-    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
-
-  ## Returns
-    - `{:ok, sar_value, new_state}` - The SAR value (or nil during warmup) and updated state
-    - `{:error, reason}` if calculation fails
-
-  ## Examples
-      iex> {:ok, state} = TheoryCraftTA.sar_state_init()
-      iex> {:ok, nil, state2} = TheoryCraftTA.sar_state_next(state, 10.0, 8.0, true)
-      iex> {:ok, sar, _state3} = TheoryCraftTA.sar_state_next(state2, 11.0, 9.0, true)
-      iex> is_float(sar)
-      true
-
-  """
-  @spec sar_state_next(term(), float(), float(), boolean()) ::
-          {:ok, float() | nil, term()} | {:error, String.t()}
-  defdelegate sar_state_next(state, high, low, is_new_bar),
-    to: Module.concat([@backend, Overlap, SARState]),
-    as: :next
-
-  @doc """
-  Process next high/low bar with SAR state - Bang version.
-
-  Same as `sar_state_next/4` but raises an exception instead of returning an error tuple.
-
-  ## Parameters
-    - `state` - Current SAR state (from `sar_state_init!/2` or previous `sar_state_next!/4`)
-    - `high` - High price for this bar
-    - `low` - Low price for this bar
-    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
-
-  ## Returns
-    - `{sar_value, new_state}` - The SAR value (or nil during warmup) and updated state
-
-  ## Raises
-    - `RuntimeError` if calculation fails
-
-  ## Examples
-      iex> state = TheoryCraftTA.sar_state_init!()
-      iex> {nil, state2} = TheoryCraftTA.sar_state_next!(state, 10.0, 8.0, true)
-      iex> {sar, _state3} = TheoryCraftTA.sar_state_next!(state2, 11.0, 9.0, true)
-      iex> is_float(sar)
-      true
-
-  """
+  @doc "Process next high/low with SAR state. See `sar_state_next/4` for details."
   @spec sar_state_next!(term(), float(), float(), boolean()) :: {float() | nil, term()}
-  def sar_state_next!(state, high, low, is_new_bar) do
-    unwrap_next!(sar_state_next(state, high, low, is_new_bar), "SAR")
-  end
+  def sar_state_next!(state, high, low, is_new_bar),
+    do: unwrap_next!(sar_state_next(state, high, low, is_new_bar), "SAR")
 
   ## Private functions
 
