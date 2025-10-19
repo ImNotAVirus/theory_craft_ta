@@ -1493,8 +1493,8 @@ pub fn overlap_kama_state_next(
             volatility += (new_state.buffer[i + 1] - new_state.buffer[i]).abs();
         }
 
-        let er = if volatility == 0.0 {
-            0.0
+        let er = if volatility <= change || volatility == 0.0 {
+            1.0
         } else {
             change / volatility
         };

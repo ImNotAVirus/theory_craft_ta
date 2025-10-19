@@ -155,7 +155,7 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMAState do
       |> Enum.map(fn [a, b] -> abs(b - a) end)
       |> Enum.sum()
 
-    er = if volatility == 0.0, do: 0.0, else: change / volatility
+    er = if volatility <= change || volatility == 0.0, do: 1.0, else: change / volatility
 
     # Smoothing Constant (SC)
     sc = :math.pow(er * (state.fastest_sc - state.slowest_sc) + state.slowest_sc, 2)

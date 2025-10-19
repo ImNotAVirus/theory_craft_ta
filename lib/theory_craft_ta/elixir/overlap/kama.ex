@@ -75,7 +75,7 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMA do
         |> Enum.map(fn [a, b] -> abs(b - a) end)
         |> Enum.sum()
 
-      er = if volatility == 0.0, do: 0.0, else: change / volatility
+      er = if volatility <= change || volatility == 0.0, do: 1.0, else: change / volatility
       sc = :math.pow(er * (fastest_sc - slowest_sc) + slowest_sc, 2)
       first_kama = prev_kama_init + sc * (first_price - prev_kama_init)
 
@@ -94,7 +94,7 @@ defmodule TheoryCraftTA.Elixir.Overlap.KAMA do
             |> Enum.map(fn [a, b] -> abs(b - a) end)
             |> Enum.sum()
 
-          er = if volatility == 0.0, do: 0.0, else: change / volatility
+          er = if volatility <= change || volatility == 0.0, do: 1.0, else: change / volatility
 
           # Smoothing Constant (SC)
           sc = :math.pow(er * (fastest_sc - slowest_sc) + slowest_sc, 2)
