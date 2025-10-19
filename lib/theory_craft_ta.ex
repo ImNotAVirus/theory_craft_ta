@@ -47,6 +47,7 @@ defmodule TheoryCraftTA do
   defdelegate trima(data, period), to: TheoryCraftTA.Overlap.TRIMA
   defdelegate t3(data, period, vfactor), to: TheoryCraftTA.Overlap.T3
   defdelegate midpoint(data, period), to: TheoryCraftTA.Overlap.MIDPOINT
+  defdelegate kama(data, period), to: TheoryCraftTA.Overlap.KAMA
 
   ## State indicators - Delegates
 
@@ -79,6 +80,9 @@ defmodule TheoryCraftTA do
   defdelegate midpoint_state_next(value, is_new_bar, state),
     to: TheoryCraftTA.Overlap.MIDPOINT,
     as: :next
+
+  defdelegate kama_state_init(period), to: TheoryCraftTA.Overlap.KAMA, as: :init
+  defdelegate kama_state_next(value, is_new_bar, state), to: TheoryCraftTA.Overlap.KAMA, as: :next
 
   ## Batch indicators - Bang functions
 
@@ -113,6 +117,10 @@ defmodule TheoryCraftTA do
   @doc "MidPoint over period. See `midpoint/2` for details."
   @spec midpoint!(source(), pos_integer()) :: source()
   def midpoint!(data, period), do: unwrap_batch!(midpoint(data, period), "MIDPOINT")
+
+  @doc "Kaufman Adaptive Moving Average. See `kama/2` for details."
+  @spec kama!(source(), pos_integer()) :: source()
+  def kama!(data, period), do: unwrap_batch!(kama(data, period), "KAMA")
 
   ## State indicators - Bang functions
 
@@ -187,6 +195,15 @@ defmodule TheoryCraftTA do
   @spec midpoint_state_next!(float(), boolean(), term()) :: {float() | nil, term()}
   def midpoint_state_next!(value, is_new_bar, state),
     do: unwrap_next!(midpoint_state_next(value, is_new_bar, state), "MIDPOINT")
+
+  @doc "Initialize KAMA state. See `kama_state_init/1` for details."
+  @spec kama_state_init!(pos_integer()) :: term()
+  def kama_state_init!(period), do: unwrap_init!(kama_state_init(period), "KAMA")
+
+  @doc "Process next value with KAMA state. See `kama_state_next/3` for details."
+  @spec kama_state_next!(float(), boolean(), term()) :: {float() | nil, term()}
+  def kama_state_next!(value, is_new_bar, state),
+    do: unwrap_next!(kama_state_next(value, is_new_bar, state), "KAMA")
 
   ## Private functions
 
