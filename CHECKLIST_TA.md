@@ -1,66 +1,77 @@
 # Checklist: Adding a new TA indicator
 
-This checklist describes the steps to add a new technical indicator. Replace:
-- `{INDICATOR}` = uppercase name (e.g. `WMA`, `RSI`, `ATR`)
-- `{indicator}` = lowercase name (e.g. `wma`, `rsi`, `atr`)
+This checklist describes the steps to add a new technical indicator using the NIF-only architecture. Replace:
+- `{INDICATOR}` = uppercase name (e.g. `SMA`, `RSI`, `ATR`)
+- `{indicator}` = lowercase name (e.g. `sma`, `rsi`, `atr`)
 - `{Type}` = indicator type capitalized (e.g. `Overlap`, `Oscillators`, `Volatility`, `Volume`, `Other`)
 - `{type}` = indicator type lowercase (e.g. `overlap`, `oscillators`, `volatility`, `volume`, `other`)
-- `{description}` = short description (e.g. "Weighted Moving Average", "Relative Strength Index")
-- `{ta_func}` = TA-Lib function name (e.g. `TA_WMA`, `TA_RSI`)
+- `{description}` = short description (e.g. "Simple Moving Average", "Relative Strength Index")
+- `{ta_func}` = TA-Lib function name (e.g. `TA_SMA`, `TA_RSI`)
 
 ## Phase 1: Python tests with ta-lib
 
-Test with Python ta-lib to get reference values:
-- Normal cases with different periods
-- Edge cases (minimum, invalid periods depending on the indicator)
+Test with Python ta-lib to get reference values for **unit tests (edge cases)**:
+- Normal cases with different periods (e.g., period=3, period=14)
+- Edge cases (minimum period, period=1, period=0)
 - Empty array
-- Insufficient data
-- Extended data
+- Insufficient data (data length < period)
+- Extended data (large datasets)
 
-**Record all results** for Elixir tests.
+**Record all results** for Elixir unit tests (edge case verification).
 
 Example:
 ```bash
 python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0, 5.0]); print(talib.{ta_func}(data, timeperiod=3))"
+# Output: [nan nan 2. 3. 4.]  → Use as expected result in tests
 ```
 
-## Phase 2: Batch tests
+## Phase 2: Tests (TDD - Write tests FIRST!)
 
 - Create `test/theory_craft_ta/{type}/{indicator}_test.exs`
-- Follow structure from existing tests (e.g. `test/theory_craft_ta/overlap/wma_test.exs`)
-- Update backends to use `TheoryCraftTA.Native.{Type}.{INDICATOR}` and `TheoryCraftTA.Elixir.{Type}.{INDICATOR}`
-- Add tests for each Python case (list, DataSeries, TimeSeries)
-- Add property-based tests comparing Native vs Elixir
+- Structure with comment sections:
+  - `## Batch calculation tests` section
+  - `## State initialization tests` section (if needed)
+  - `## Property-based tests` section
+- Include both unit tests and property-based tests:
 
-## Phase 3: State tests
+  **Unit tests (edge cases with ta-lib values)**:
+  - Test with valid period (use Python ta-lib values from Phase 1)
+  - Test with minimum period
+  - Test with insufficient data (should return appropriate values/nils)
+  - Test with empty data
+  - Test with DataSeries and TimeSeries (verify type preservation)
 
-- Create `test/theory_craft_ta/{type}/{indicator}_state_test.exs`
-- Follow structure from existing tests (e.g. `test/theory_craft_ta/overlap/wma_state_test.exs`)
-- Test init (valid/invalid periods)
-- Test APPEND mode (warmup, correct calculation)
-- Test UPDATE mode (update last value)
-- Property tests (APPEND = batch, UPDATE recalculates correctly)
+  **Property-based tests**:
+  - Property: APPEND mode matches batch calculation
+  - Property: UPDATE mode behaves correctly
 
-## Phase 4: Elixir batch implementation
+- Follow existing test structure (e.g., `test/theory_craft_ta/overlap/sma_test.exs`)
+- Format: `mix format test/theory_craft_ta/{type}/{indicator}_test.exs`
+- **Note**: Tests will fail until implementation is complete - this is expected in TDD!
 
-- Create `lib/theory_craft_ta/elixir/{type}/{indicator}.ex`
-- Define module `TheoryCraftTA.Elixir.{Type}.{INDICATOR}` with @moduledoc
-- Add `{indicator}/N` function with @doc and @spec (where N = number of parameters)
-- Add private `calculate_{indicator}` function for the algorithm
-- Follow existing implementations (e.g. `lib/theory_craft_ta/elixir/overlap/wma.ex`)
-- Format: `mix format lib/theory_craft_ta/elixir/{type}/{indicator}.ex`
+## Phase 3: Unified Elixir wrapper
 
-## Phase 5: Elixir state implementation
+- Create `lib/theory_craft_ta/{type}/{indicator}.ex`
+- Define module `TheoryCraftTA.{Type}.{INDICATOR}` with:
+  - `@moduledoc` - Description and calculation formula
+  - `alias TheoryCraftTA.{Native, Helpers}`
+  - `@type t :: reference()` - No @typedoc needed
+  - `## Public API` comment section
+  - `{indicator}/N` function - Batch calculation with @doc, @spec, examples
+  - `init/N` function - Initialize state with @doc, @spec, examples
+  - `next/3` function - Streaming calculation with @doc, @spec, examples
+- Follow existing wrappers (e.g., `lib/theory_craft_ta/overlap/sma.ex`)
+- Format: `mix format lib/theory_craft_ta/{type}/{indicator}.ex`
 
-- Create `lib/theory_craft_ta/elixir/{type}/{indicator}_state.ex`
-- Follow structure from existing state implementations (e.g. `lib/theory_craft_ta/elixir/overlap/wma_state.ex`)
-- Define module `TheoryCraftTA.Elixir.{Type}.{INDICATOR}State` with @moduledoc
-- Define struct with necessary fields (period, buffer, lookback_count, etc.)
-- Implement `init` with parameters specific to the indicator
-- Implement `next/3` (state, value, is_new_bar) with APPEND/UPDATE logic
-- Format: `mix format lib/theory_craft_ta/elixir/{type}/{indicator}_state.ex`
+## Phase 4: Native Elixir stubs
 
-## Phase 6: Rust NIF batch implementation
+- Add NIF stubs in `lib/theory_craft_ta/native.ex` (under `## NIF stubs` section):
+  - Batch function: `def {type}_{indicator}(_data, _period), do: error()`
+  - State init: `def {type}_{indicator}_state_init(_period), do: error()`
+  - State next: `def {type}_{indicator}_state_next(_state, _value, _is_new_bar), do: error()`
+- Note: `error()` is a private function that calls `:erlang.nif_error(:nif_not_loaded)`
+
+## Phase 5: Rust NIF batch implementation
 
 - Add FFI in `native/theory_craft_ta/src/{type}_ffi.rs` (create if doesn't exist)
   - Declare {ta_func} function with appropriate ta-lib parameters
@@ -68,9 +79,9 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 - Add `{type}_{indicator}` function in `native/theory_craft_ta/src/{type}.rs` (create if doesn't exist)
   - Include #[cfg(has_talib)] implementation and #[cfg(not(has_talib))] stub
   - Parameters depend on the indicator (data + indicator-specific parameters)
-- Follow existing functions in the same category or overlap_sma, overlap_ema, overlap_wma
+- Follow existing functions (e.g., overlap_sma, overlap_ema)
 
-## Phase 7: Rust NIF state implementation
+## Phase 6: Rust NIF state implementation
 
 - Add `{INDICATOR}State` struct in `native/theory_craft_ta/src/{type}_state.rs` (create if doesn't exist)
   - Include fields specific to the indicator (period, buffer, lookback_count, etc.)
@@ -80,45 +91,37 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 - Follow existing State implementations (SMAState, EMAState, WMAState)
 - Register ResourceArc in `native/theory_craft_ta/src/lib.rs`: `rustler::resource!({type}_state::{INDICATOR}State, env)`
 
-## Phase 8: Native Elixir wrappers
+## Phase 7: Tests verification
 
-- Add stubs in `lib/theory_craft_ta/native.ex`:
-  - `def {type}_{indicator}(...)` with appropriate parameters, `do: error()`
-  - `def {type}_{indicator}_state_init(...)` with appropriate parameters, `do: error()`
-  - `def {type}_{indicator}_state_next(_state, _value, _is_new_bar), do: error()`
-- Create `lib/theory_craft_ta/native/{type}/{indicator}.ex` (follow existing wrappers like `lib/theory_craft_ta/native/overlap/wma.ex`)
-  - Define module `TheoryCraftTA.Native.{Type}.{INDICATOR}` with @moduledoc
-  - Add wrapper function that calls `Native.{type}_{indicator}` and uses `Helpers.rebuild_same_type`
-- Create `lib/theory_craft_ta/native/{type}/{indicator}_state.ex` (follow existing state wrappers like `lib/theory_craft_ta/native/overlap/wma_state.ex`)
-  - Define module `TheoryCraftTA.Native.{Type}.{INDICATOR}State` with @moduledoc
-- Format modified files
+- Run tests: `mix test test/theory_craft_ta/{type}/{indicator}_test.exs`
+- **All tests should now pass** (batch tests, state tests, property tests)
+- Fix any failing tests by adjusting implementation in Rust NIF
+- Verify doctests pass: check examples in `lib/theory_craft_ta/{type}/{indicator}.ex`
 
-## Phase 9: Public API
+## Phase 8: Public API
 
 - Edit `lib/theory_craft_ta.ex`
-- Add batch functions in appropriate section (e.g. `## {Type} Indicators`):
-  - `{indicator}/N` (normal version)
-  - `{indicator}!/N` (bang version)
-- Add state functions in `## State-based Indicators` section:
-  - `{indicator}_state_init` (with parameters specific to the indicator)
-  - `{indicator}_state_init!` (bang version)
-  - `{indicator}_state_next/3`
-  - `{indicator}_state_next!/3`
-- Use `Module.concat([@backend, {Type}, {INDICATOR}])` for batch delegation
-- Use `Module.concat([@backend, {Type}, {INDICATOR}State])` for state delegation
-- Follow existing functions
+- Add to **Batch indicators - Delegates** section:
+  - `defdelegate {indicator}(data, period), to: TheoryCraftTA.{Type}.{INDICATOR}`
+- Add to **State indicators - Delegates** section:
+  - `defdelegate {indicator}_state_init(period), to: TheoryCraftTA.{Type}.{INDICATOR}, as: :init`
+  - `defdelegate {indicator}_state_next(value, is_new_bar, state), to: TheoryCraftTA.{Type}.{INDICATOR}, as: :next`
+- Add to **Batch indicators - Bang functions** section:
+  - `{indicator}!/N` with minimal @doc referencing `{indicator}/N`
+- Add to **State indicators - Bang functions** section:
+  - `{indicator}_state_init!/N` with minimal @doc referencing `{indicator}_state_init/N`
+  - `{indicator}_state_next!/3` with minimal @doc referencing `{indicator}_state_next/3`
 - Format: `mix format lib/theory_craft_ta.ex`
 
-## Phase 10: Benchmarks
+## Phase 9: Benchmarks
 
-- Create `benchmarks/{indicator}_benchmark.exs` (follow existing benchmarks like `wma_benchmark.exs`)
-- Update aliases to use `TheoryCraftTA.Native.{Type}.{INDICATOR}` and `TheoryCraftTA.Elixir.{Type}.{INDICATOR}`
-  - Example: `alias TheoryCraftTA.Native.Overlap.WMA, as: NativeWMA`
-- Create `benchmarks/{indicator}_state_benchmark.exs` (follow existing state benchmarks like `wma_state_benchmark.exs`)
-- Update state aliases to use `TheoryCraftTA.Native.{Type}.{INDICATOR}State` and `TheoryCraftTA.Elixir.{Type}.{INDICATOR}State`
-  - Example: `alias TheoryCraftTA.Native.Overlap.WMAState, as: NativeWMA`
+- Create `benchmarks/{indicator}_benchmark.exs`
+- Benchmark batch calculation with different data sizes
+- Follow existing benchmarks (e.g., `benchmarks/sma_benchmark.exs`)
+- Create `benchmarks/{indicator}_state_benchmark.exs`
+- Benchmark state-based calculation (APPEND mode)
 
-## Phase 11: Verification
+## Phase 10: Verification
 
 **IMPORTANT**: Always use forward slashes `/` in paths, NEVER backslashes `\`.
 
@@ -126,11 +129,11 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
 - Run benchmarks:
   - `.tools/run_benchmark.cmd benchmarks/{indicator}_benchmark.exs`
   - `.tools/run_benchmark.cmd benchmarks/{indicator}_state_benchmark.exs`
-- Record results (IPS, Native/Elixir comparisons, memory)
+- Record results (IPS, memory usage)
 
-## Phase 12: Summary
+## Phase 11: Summary
 
 Create a structured summary with:
-- Number of tests passed (doctests + properties + unit tests)
-- Implemented files (Elixir batch/state, Rust batch/state, public API)
-- Benchmark results (batch and state, with Native/Elixir comparisons)
+- Number of tests passed (doctests + properties)
+- Implemented files (Rust NIF, Elixir wrapper, tests, public API)
+- Benchmark results (batch and state)

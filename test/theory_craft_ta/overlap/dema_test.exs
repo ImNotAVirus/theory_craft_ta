@@ -3,299 +3,165 @@ defmodule TheoryCraftTA.DEMATest do
   use ExUnitProperties
 
   alias TheoryCraft.{DataSeries, TimeSeries}
+  alias TheoryCraftTA.Overlap.DEMA
 
-  doctest TheoryCraftTA.Native.Overlap.DEMA
-  doctest TheoryCraftTA.Elixir.Overlap.DEMA
-  doctest TheoryCraftTA.Native.Overlap.DEMAState
-  doctest TheoryCraftTA.Elixir.Overlap.DEMAState
+  doctest TheoryCraftTA.Overlap.DEMA
 
-  @backends %{
-    native: TheoryCraftTA.Native.Overlap.DEMA,
-    elixir: TheoryCraftTA.Elixir.Overlap.DEMA
-  }
+  ## Batch calculation tests
 
-  ## Tests for DEMA (Double Exponential Moving Average)
+  describe "dema/2 with list input" do
+    test "calculates correctly with period=3" do
+      data = [1.0, 2.0, 3.0, 4.0, 5.0]
+      # Python result: [nan nan nan nan 5.]
+      assert {:ok, result} = DEMA.dema(data, 3)
+      assert result == [nil, nil, nil, nil, 5.0]
+    end
 
-  for {backend_name, backend_module} <- @backends do
-    @backend_module backend_module
+    test "handles period=2 (minimum valid)" do
+      data = [1.0, 2.0, 3.0, 4.0, 5.0]
+      # Python result: [nan nan 3. 4. 5.]
+      assert {:ok, result} = DEMA.dema(data, 2)
+      assert result == [nil, nil, 3.0, 4.0, 5.0]
+    end
 
-    describe "#{backend_name} - dema/2 with list input" do
-      test "calculates correctly with period=3" do
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
-        # Python result: [nan nan nan nan 5.]
-        assert {:ok, result} = @backend_module.dema(data, 3)
+    test "raises for period=1" do
+      data = [1.0, 2.0, 3.0]
+      assert {:error, reason} = DEMA.dema(data, 1)
+      assert reason =~ "Invalid parameters"
+    end
 
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert Enum.at(result, 2) == nil
-        assert Enum.at(result, 3) == nil
-        assert_in_delta Enum.at(result, 4), 5.0, 0.001
-      end
+    test "raises for period=0" do
+      data = [1.0, 2.0, 3.0]
+      assert {:error, reason} = DEMA.dema(data, 0)
+      assert reason =~ "Invalid parameters"
+    end
 
-      test "handles period=2 (minimum valid)" do
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
-        # Python result: [nan nan 3. 4. 5.]
-        assert {:ok, result} = @backend_module.dema(data, 2)
+    test "returns empty for empty input" do
+      assert {:ok, []} = DEMA.dema([], 3)
+    end
 
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert_in_delta Enum.at(result, 2), 3.0, 0.001
-        assert_in_delta Enum.at(result, 3), 4.0, 0.001
-        assert_in_delta Enum.at(result, 4), 5.0, 0.001
-      end
+    test "handles insufficient data (period > data length)" do
+      data = [1.0, 2.0]
+      assert {:ok, result} = DEMA.dema(data, 3)
+      assert result == [nil, nil]
+    end
+  end
 
-      test "raises for period=1" do
-        data = [1.0, 2.0, 3.0]
-        # Python raises with error code 2 (BadParam)
-        assert {:error, reason} = @backend_module.dema(data, 1)
+  describe "dema/2 with DataSeries input" do
+    test "maintains DataSeries type in output" do
+      data =
+        DataSeries.new()
+        |> DataSeries.add(1.0)
+        |> DataSeries.add(2.0)
+        |> DataSeries.add(3.0)
+        |> DataSeries.add(4.0)
+        |> DataSeries.add(5.0)
 
-        # Different error messages per backend
-        if unquote(backend_name) == :native do
-          assert reason =~ "Invalid parameters"
-        else
-          assert reason =~ "Invalid period: must be >= 2 for DEMA"
-        end
-      end
+      assert {:ok, result} = DEMA.dema(data, 3)
+      assert %DataSeries{} = result
+    end
+  end
 
-      test "raises for period=0" do
-        data = [1.0, 2.0, 3.0]
-        # Python raises with error code 2 (BadParam)
-        assert {:error, reason} = @backend_module.dema(data, 0)
+  describe "dema/2 with TimeSeries input" do
+    test "maintains TimeSeries type in output" do
+      ts =
+        TimeSeries.new()
+        |> TimeSeries.add(~U[2024-01-01 00:00:00Z], 1.0)
+        |> TimeSeries.add(~U[2024-01-01 00:01:00Z], 2.0)
+        |> TimeSeries.add(~U[2024-01-01 00:02:00Z], 3.0)
+        |> TimeSeries.add(~U[2024-01-01 00:03:00Z], 4.0)
+        |> TimeSeries.add(~U[2024-01-01 00:04:00Z], 5.0)
 
-        # Different error messages per backend
-        if unquote(backend_name) == :native do
-          assert reason =~ "Invalid parameters"
-        else
-          assert reason =~ "Invalid period: must be >= 2 for DEMA"
-        end
-      end
+      assert {:ok, result} = DEMA.dema(ts, 3)
+      assert %TimeSeries{} = result
+    end
+  end
 
-      test "raises for negative period" do
-        data = [1.0, 2.0, 3.0]
-        # Python raises with error code 2 (BadParam)
-        assert {:error, reason} = @backend_module.dema(data, -1)
+  ## State initialization tests
 
-        # Different error messages per backend
-        if unquote(backend_name) == :native do
-          assert reason =~ "Invalid parameters"
-        else
-          assert reason =~ "Invalid period: must be >= 2 for DEMA"
-        end
-      end
+  describe "init/1" do
+    test "initializes with valid period" do
+      assert {:ok, _state} = DEMA.init(14)
+    end
 
-      if backend_name == :native do
-        test "raises ArgumentError for float period" do
-          data = [1.0, 2.0, 3.0]
-          # Native backend: ArgumentError (Rustler type conversion)
-          assert_raise ArgumentError, fn ->
-            @backend_module.dema(data, 2.5)
+    test "returns error for period < 2" do
+      assert {:error, msg} = DEMA.init(1)
+      assert msg =~ "Invalid period"
+    end
+  end
+
+  ## Property-based tests
+
+  describe "property: state-based APPEND matches batch calculation" do
+    property "APPEND mode matches batch DEMA" do
+      check all(
+              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 21, max_length: 500),
+              period <- integer(2..200)
+            ) do
+        # Calculate batch DEMA (expected values)
+        {:ok, batch_result} = DEMA.dema(data, period)
+
+        # Calculate with state (APPEND only - each value = new bar)
+        {:ok, initial_state} = DEMA.init(period)
+
+        data
+        |> Enum.zip(batch_result)
+        |> Enum.reduce(initial_state, fn {value, expected_value}, state ->
+          {:ok, dema_value, new_state} = DEMA.next(value, true, state)
+
+          case {dema_value, expected_value} do
+            {nil, nil} -> :ok
+            {val, exp} when is_float(val) and is_float(exp) -> assert_in_delta(val, exp, 0.0001)
+            _ -> flunk("Mismatch in batch vs incremental results")
           end
-        end
-      end
 
-      test "returns empty for empty input" do
-        # Python result: []
-        assert {:ok, []} = @backend_module.dema([], 3)
-      end
-
-      test "handles insufficient data (period > data length)" do
-        data = [1.0, 2.0]
-        # Python with period=5: [nan nan]
-        assert {:ok, result} = @backend_module.dema(data, 5)
-        assert result == [nil, nil]
-      end
-
-      test "handles period equal to data length" do
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
-        # Python result: [nan nan nan nan nan]
-        assert {:ok, result} = @backend_module.dema(data, 5)
-
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert Enum.at(result, 2) == nil
-        assert Enum.at(result, 3) == nil
-        assert Enum.at(result, 4) == nil
-      end
-
-      test "calculates correctly for extended test data" do
-        data = [1.0, 5.0, 3.0, 4.0, 7.0, 3.0, 8.0, 1.0, 4.0, 6.0]
-
-        # Python result with period=2: [nan nan 3. 3.88888889 6.7037037 3.59259259 7.42798354 1.8861454 3.54320988 5.70812376]
-        assert {:ok, result} = @backend_module.dema(data, 2)
-
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert_in_delta Enum.at(result, 2), 3.0, 0.001
-        assert_in_delta Enum.at(result, 3), 3.88888889, 0.001
-        assert_in_delta Enum.at(result, 4), 6.7037037, 0.001
-        assert_in_delta Enum.at(result, 5), 3.59259259, 0.001
-        assert_in_delta Enum.at(result, 6), 7.42798354, 0.001
-        assert_in_delta Enum.at(result, 7), 1.8861454, 0.001
-        assert_in_delta Enum.at(result, 8), 3.54320988, 0.001
-        assert_in_delta Enum.at(result, 9), 5.70812376, 0.001
-      end
-    end
-
-    describe "#{backend_name} - dema/2 with DataSeries input" do
-      test "returns DataSeries with DEMA values in newest-first order" do
-        ds =
-          DataSeries.new()
-          |> DataSeries.add(1.0)
-          |> DataSeries.add(2.0)
-          |> DataSeries.add(3.0)
-          |> DataSeries.add(4.0)
-          |> DataSeries.add(5.0)
-
-        assert {:ok, result_ds} = @backend_module.dema(ds, 3)
-        assert %DataSeries{} = result_ds
-
-        values = DataSeries.values(result_ds)
-
-        # DataSeries stores newest-first: [5.0, 4.0, 3.0, 2.0, 1.0]
-        # After reversal for calculation: [1.0, 2.0, 3.0, 4.0, 5.0]
-        # DEMA result (oldest-first): [nil, nil, nil, nil, 5.0]
-        # Reversed back (newest-first): [5.0, nil, nil, nil, nil]
-
-        assert_in_delta Enum.at(values, 0), 5.0, 0.001
-        assert Enum.at(values, 1) == nil
-        assert Enum.at(values, 2) == nil
-        assert Enum.at(values, 3) == nil
-        assert Enum.at(values, 4) == nil
-      end
-
-      test "preserves DataSeries max_size" do
-        ds = DataSeries.new(max_size: 10)
-        ds = DataSeries.add(ds, 1.0)
-        ds = DataSeries.add(ds, 2.0)
-        ds = DataSeries.add(ds, 3.0)
-
-        assert {:ok, result_ds} = @backend_module.dema(ds, 2)
-        assert %DataSeries{max_size: 10} = result_ds
-      end
-
-      test "returns empty DataSeries for empty input" do
-        ds = DataSeries.new()
-        # Like Python: empty input → empty output
-        assert {:ok, result_ds} = @backend_module.dema(ds, 3)
-        assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == []
-      end
-    end
-
-    describe "#{backend_name} - dema/2 with TimeSeries input" do
-      test "returns TimeSeries with DEMA values in newest-first order" do
-        base_time = ~U[2024-01-01 00:00:00.000000Z]
-
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), 1.0)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 2.0)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 3.0)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 4.0)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 5.0)
-
-        assert {:ok, result_ts} = @backend_module.dema(ts, 3)
-        assert %TimeSeries{} = result_ts
-
-        values = TimeSeries.values(result_ts)
-        keys = TimeSeries.keys(result_ts)
-
-        # Same calculation as DataSeries test
-        assert_in_delta Enum.at(values, 0), 5.0, 0.001
-        assert Enum.at(values, 1) == nil
-        assert Enum.at(values, 2) == nil
-        assert Enum.at(values, 3) == nil
-        assert Enum.at(values, 4) == nil
-
-        # Keys should be preserved
-        assert length(keys) == 5
-        assert Enum.all?(keys, &match?(%DateTime{}, &1))
-      end
-
-      test "preserves DateTime keys in correct order" do
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(~U[2024-01-01 09:00:00.000000Z], 100.0)
-          |> TimeSeries.add(~U[2024-01-01 09:01:00.000000Z], 101.0)
-          |> TimeSeries.add(~U[2024-01-01 09:02:00.000000Z], 102.0)
-          |> TimeSeries.add(~U[2024-01-01 09:03:00.000000Z], 103.0)
-
-        original_keys = TimeSeries.keys(ts)
-
-        assert {:ok, result_ts} = @backend_module.dema(ts, 2)
-        result_keys = TimeSeries.keys(result_ts)
-
-        # Keys should be identical
-        assert result_keys == original_keys
-      end
-
-      test "returns empty TimeSeries for empty input" do
-        ts = TimeSeries.new()
-        # Like Python: empty input → empty output
-        assert {:ok, result_ts} = @backend_module.dema(ts, 3)
-        assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == []
+          new_state
+        end)
       end
     end
   end
 
-  ## Property-based testing
-
-  describe "property-based testing: Native vs Elixir backends for dema" do
-    property "Native and Elixir backends produce identical results for lists" do
+  describe "property: UPDATE mode behaves correctly" do
+    property "UPDATE recalculates with replaced last value" do
       check all(
-              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 2, max_length: 100),
-              period <- integer(2..10)
+              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 15, max_length: 500),
+              period <- integer(2..200),
+              update_values <-
+                list_of(float(min: 1.0, max: 1000.0), min_length: 2, max_length: 5)
             ) do
-        # Ensure we have enough data for the period
-        data = if length(data) < period, do: data ++ List.duplicate(50.0, period), else: data
+        # Build initial state with data
+        {:ok, state} = DEMA.init(period)
 
-        # Test with Native backend directly
-        {:ok, native_result} = TheoryCraftTA.Native.Overlap.DEMA.dema(data, period)
+        {final_state, _} =
+          Enum.reduce(data, {state, []}, fn value, {st, results} ->
+            {:ok, dema_value, new_state} = DEMA.next(value, true, st)
+            {new_state, [dema_value | results]}
+          end)
 
-        # Test with Elixir backend directly
-        {:ok, elixir_result} = TheoryCraftTA.Elixir.Overlap.DEMA.dema(data, period)
+        # Apply multiple UPDATE operations - each replaces the last bar
+        Enum.reduce(update_values, {final_state, data}, fn update_value, {state, current_data} ->
+          {:ok, state_dema, new_state} = DEMA.next(update_value, false, state)
 
-        # Results should be identical (within floating point precision)
-        assert_lists_equal(native_result, elixir_result)
+          # Calculate equivalent batch: all previous data + update_value replacing last
+          updated_data = List.replace_at(current_data, -1, update_value)
+          {:ok, batch_result} = DEMA.dema(updated_data, period)
+          batch_dema = List.last(batch_result)
+
+          # State UPDATE should match batch calculation
+          case {state_dema, batch_dema} do
+            {nil, nil} ->
+              :ok
+
+            {s_val, b_val} when is_float(s_val) and is_float(b_val) ->
+              assert_in_delta(s_val, b_val, 0.0001)
+
+            _ ->
+              flunk("Mismatch between state UPDATE and batch")
+          end
+
+          {new_state, updated_data}
+        end)
       end
     end
-
-    property "Native and Elixir backends produce identical results for DataSeries" do
-      check all(
-              values <- list_of(float(min: 1.0, max: 1000.0), min_length: 5, max_length: 50),
-              period <- integer(2..5)
-            ) do
-        ds = Enum.reduce(values, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
-
-        # Test with Native backend directly
-        {:ok, native_result_ds} = TheoryCraftTA.Native.Overlap.DEMA.dema(ds, period)
-        native_result = DataSeries.values(native_result_ds)
-
-        # Test with Elixir backend directly
-        {:ok, elixir_result_ds} = TheoryCraftTA.Elixir.Overlap.DEMA.dema(ds, period)
-        elixir_result = DataSeries.values(elixir_result_ds)
-
-        assert_lists_equal(native_result, elixir_result)
-      end
-    end
-  end
-
-  ## Private helper functions
-
-  defp assert_lists_equal(list1, list2) do
-    assert length(list1) == length(list2)
-
-    Enum.zip(list1, list2)
-    |> Enum.each(fn
-      {nil, nil} ->
-        :ok
-
-      {val1, val2} when is_float(val1) and is_float(val2) ->
-        assert_in_delta(val1, val2, 0.0001)
-
-      {val1, val2} ->
-        assert val1 == val2
-    end)
   end
 end

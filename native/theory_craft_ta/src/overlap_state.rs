@@ -5,7 +5,8 @@ use rustler::{Encoder, Env, NifResult, ResourceArc, Term};
 pub struct EMAState {
     period: i32,
     k: f64,
-    current_ema: Option<f64>,
+    current_ema: Option<f64>, // EMA of current bar (can change in UPDATE mode)
+    prev_ema: Option<f64>,    // EMA of previous bar (persisted in APPEND mode)
     lookback_count: i32,
     buffer: Vec<f64>,
 }
@@ -83,6 +84,7 @@ pub fn overlap_ema_state_init(env: Env, period: i32) -> NifResult<Term> {
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     };
@@ -122,6 +124,7 @@ pub fn overlap_ema_state_next(
             period: state.period,
             k: state.k,
             current_ema: state.current_ema,
+            prev_ema: state.prev_ema,
             lookback_count: new_lookback,
             buffer: new_buffer,
         };
@@ -131,19 +134,37 @@ pub fn overlap_ema_state_next(
     }
 
     // Calculate new EMA
-    let new_ema = match state.current_ema {
-        None => {
-            // First EMA: use SMA as seed (average of all values in buffer)
-            let sum: f64 = new_buffer.iter().sum();
-            sum / (state.period as f64)
-        }
-        Some(prev_ema) => (value - prev_ema) * state.k + prev_ema,
+    let (new_ema, new_prev_ema) = if is_new_bar {
+        // APPEND mode: calculate new EMA and persist previous one
+        let ema = match state.current_ema {
+            None => {
+                // First EMA: use SMA as seed (average of all values in buffer)
+                let sum: f64 = new_buffer.iter().sum();
+                sum / (state.period as f64)
+            }
+            Some(current) => (value - current) * state.k + current,
+        };
+        // In APPEND: current_ema becomes prev_ema for next iteration
+        (ema, state.current_ema)
+    } else {
+        // UPDATE mode: only recalculate last value using prev_ema
+        let ema = match state.prev_ema {
+            None => {
+                // First bar being updated: use SMA
+                let sum: f64 = new_buffer.iter().sum();
+                sum / (state.period as f64)
+            }
+            Some(prev) => (value - prev) * state.k + prev,
+        };
+        // In UPDATE: prev_ema stays the same
+        (ema, state.prev_ema)
     };
 
     let new_state = EMAState {
         period: state.period,
         k: state.k,
         current_ema: Some(new_ema),
+        prev_ema: new_prev_ema,
         lookback_count: new_lookback,
         buffer: new_buffer,
     };
@@ -330,6 +351,7 @@ pub fn overlap_dema_state_init(env: Env, period: i32) -> NifResult<Term> {
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -338,6 +360,7 @@ pub fn overlap_dema_state_init(env: Env, period: i32) -> NifResult<Term> {
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -388,23 +411,38 @@ pub fn overlap_dema_state_next(
     }
 
     // Calculate EMA1 value
-    let (ema1_value, new_ema1_current) = if new_lookback_ema1 < ema1_state.period {
-        (None, ema1_state.current_ema)
+    let (ema1_value, new_ema1_current, new_ema1_prev) = if new_lookback_ema1 < ema1_state.period {
+        (None, ema1_state.current_ema, ema1_state.prev_ema)
     } else {
-        let new_ema = match ema1_state.current_ema {
-            None => {
-                let sum: f64 = new_buffer_ema1.iter().sum();
-                sum / (ema1_state.period as f64)
-            }
-            Some(prev_ema) => (value - prev_ema) * ema1_state.k + prev_ema,
+        let (ema, prev) = if is_new_bar {
+            // APPEND mode: calculate new EMA and persist previous one
+            let e = match ema1_state.current_ema {
+                None => {
+                    let sum: f64 = new_buffer_ema1.iter().sum();
+                    sum / (ema1_state.period as f64)
+                }
+                Some(current) => (value - current) * ema1_state.k + current,
+            };
+            (e, ema1_state.current_ema)
+        } else {
+            // UPDATE mode: only recalculate last value using prev_ema
+            let e = match ema1_state.prev_ema {
+                None => {
+                    let sum: f64 = new_buffer_ema1.iter().sum();
+                    sum / (ema1_state.period as f64)
+                }
+                Some(prev) => (value - prev) * ema1_state.k + prev,
+            };
+            (e, ema1_state.prev_ema)
         };
-        (Some(new_ema), Some(new_ema))
+        (Some(ema), Some(ema), prev)
     };
 
     let new_ema1_state = Box::new(EMAState {
         period: ema1_state.period,
         k: ema1_state.k,
         current_ema: new_ema1_current,
+        prev_ema: new_ema1_prev,
         lookback_count: new_lookback_ema1,
         buffer: new_buffer_ema1,
     });
@@ -428,23 +466,38 @@ pub fn overlap_dema_state_next(
         }
 
         // Calculate EMA2 value
-        let (ema2_val, new_ema2_current) = if new_lookback_ema2 < ema2_state.period {
-            (None, ema2_state.current_ema)
+        let (ema2_val, new_ema2_current, new_ema2_prev) = if new_lookback_ema2 < ema2_state.period {
+            (None, ema2_state.current_ema, ema2_state.prev_ema)
         } else {
-            let new_ema = match ema2_state.current_ema {
-                None => {
-                    let sum: f64 = new_buffer_ema2.iter().sum();
-                    sum / (ema2_state.period as f64)
-                }
-                Some(prev_ema) => (ema1_val - prev_ema) * ema2_state.k + prev_ema,
+            let (ema, prev) = if is_new_bar {
+                // APPEND mode: calculate new EMA and persist previous one
+                let e = match ema2_state.current_ema {
+                    None => {
+                        let sum: f64 = new_buffer_ema2.iter().sum();
+                        sum / (ema2_state.period as f64)
+                    }
+                    Some(current) => (ema1_val - current) * ema2_state.k + current,
+                };
+                (e, ema2_state.current_ema)
+            } else {
+                // UPDATE mode: only recalculate last value using prev_ema
+                let e = match ema2_state.prev_ema {
+                    None => {
+                        let sum: f64 = new_buffer_ema2.iter().sum();
+                        sum / (ema2_state.period as f64)
+                    }
+                    Some(prev) => (ema1_val - prev) * ema2_state.k + prev,
+                };
+                (e, ema2_state.prev_ema)
             };
-            (Some(new_ema), Some(new_ema))
+            (Some(ema), Some(ema), prev)
         };
 
         let new_state = Box::new(EMAState {
             period: ema2_state.period,
             k: ema2_state.k,
             current_ema: new_ema2_current,
+            prev_ema: new_ema2_prev,
             lookback_count: new_lookback_ema2,
             buffer: new_buffer_ema2,
         });
@@ -490,6 +543,7 @@ pub fn overlap_tema_state_init(env: Env, period: i32) -> NifResult<Term> {
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -498,6 +552,7 @@ pub fn overlap_tema_state_init(env: Env, period: i32) -> NifResult<Term> {
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -506,6 +561,7 @@ pub fn overlap_tema_state_init(env: Env, period: i32) -> NifResult<Term> {
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -557,23 +613,38 @@ pub fn overlap_tema_state_next(
     }
 
     // Calculate EMA1 value
-    let (ema1_value, new_ema1_current) = if new_lookback_ema1 < ema1_state.period {
-        (None, ema1_state.current_ema)
+    let (ema1_value, new_ema1_current, new_ema1_prev) = if new_lookback_ema1 < ema1_state.period {
+        (None, ema1_state.current_ema, ema1_state.prev_ema)
     } else {
-        let new_ema = match ema1_state.current_ema {
-            None => {
-                let sum: f64 = new_buffer_ema1.iter().sum();
-                sum / (ema1_state.period as f64)
-            }
-            Some(prev_ema) => (value - prev_ema) * ema1_state.k + prev_ema,
+        let (ema, prev) = if is_new_bar {
+            // APPEND mode: calculate new EMA and persist previous one
+            let e = match ema1_state.current_ema {
+                None => {
+                    let sum: f64 = new_buffer_ema1.iter().sum();
+                    sum / (ema1_state.period as f64)
+                }
+                Some(current) => (value - current) * ema1_state.k + current,
+            };
+            (e, ema1_state.current_ema)
+        } else {
+            // UPDATE mode: only recalculate last value using prev_ema
+            let e = match ema1_state.prev_ema {
+                None => {
+                    let sum: f64 = new_buffer_ema1.iter().sum();
+                    sum / (ema1_state.period as f64)
+                }
+                Some(prev) => (value - prev) * ema1_state.k + prev,
+            };
+            (e, ema1_state.prev_ema)
         };
-        (Some(new_ema), Some(new_ema))
+        (Some(ema), Some(ema), prev)
     };
 
     let new_ema1_state = Box::new(EMAState {
         period: ema1_state.period,
         k: ema1_state.k,
         current_ema: new_ema1_current,
+        prev_ema: new_ema1_prev,
         lookback_count: new_lookback_ema1,
         buffer: new_buffer_ema1,
     });
@@ -597,23 +668,38 @@ pub fn overlap_tema_state_next(
         }
 
         // Calculate EMA2 value
-        let (ema2_val, new_ema2_current) = if new_lookback_ema2 < ema2_state.period {
-            (None, ema2_state.current_ema)
+        let (ema2_val, new_ema2_current, new_ema2_prev) = if new_lookback_ema2 < ema2_state.period {
+            (None, ema2_state.current_ema, ema2_state.prev_ema)
         } else {
-            let new_ema = match ema2_state.current_ema {
-                None => {
-                    let sum: f64 = new_buffer_ema2.iter().sum();
-                    sum / (ema2_state.period as f64)
-                }
-                Some(prev_ema) => (ema1_val - prev_ema) * ema2_state.k + prev_ema,
+            let (ema, prev) = if is_new_bar {
+                // APPEND mode: calculate new EMA and persist previous one
+                let e = match ema2_state.current_ema {
+                    None => {
+                        let sum: f64 = new_buffer_ema2.iter().sum();
+                        sum / (ema2_state.period as f64)
+                    }
+                    Some(current) => (ema1_val - current) * ema2_state.k + current,
+                };
+                (e, ema2_state.current_ema)
+            } else {
+                // UPDATE mode: only recalculate last value using prev_ema
+                let e = match ema2_state.prev_ema {
+                    None => {
+                        let sum: f64 = new_buffer_ema2.iter().sum();
+                        sum / (ema2_state.period as f64)
+                    }
+                    Some(prev) => (ema1_val - prev) * ema2_state.k + prev,
+                };
+                (e, ema2_state.prev_ema)
             };
-            (Some(new_ema), Some(new_ema))
+            (Some(ema), Some(ema), prev)
         };
 
         let new_state = Box::new(EMAState {
             period: ema2_state.period,
             k: ema2_state.k,
             current_ema: new_ema2_current,
+            prev_ema: new_ema2_prev,
             lookback_count: new_lookback_ema2,
             buffer: new_buffer_ema2,
         });
@@ -643,23 +729,38 @@ pub fn overlap_tema_state_next(
         }
 
         // Calculate EMA3 value
-        let (ema3_val, new_ema3_current) = if new_lookback_ema3 < ema3_state.period {
-            (None, ema3_state.current_ema)
+        let (ema3_val, new_ema3_current, new_ema3_prev) = if new_lookback_ema3 < ema3_state.period {
+            (None, ema3_state.current_ema, ema3_state.prev_ema)
         } else {
-            let new_ema = match ema3_state.current_ema {
-                None => {
-                    let sum: f64 = new_buffer_ema3.iter().sum();
-                    sum / (ema3_state.period as f64)
-                }
-                Some(prev_ema) => (ema2_val - prev_ema) * ema3_state.k + prev_ema,
+            let (ema, prev) = if is_new_bar {
+                // APPEND mode: calculate new EMA and persist previous one
+                let e = match ema3_state.current_ema {
+                    None => {
+                        let sum: f64 = new_buffer_ema3.iter().sum();
+                        sum / (ema3_state.period as f64)
+                    }
+                    Some(current) => (ema2_val - current) * ema3_state.k + current,
+                };
+                (e, ema3_state.current_ema)
+            } else {
+                // UPDATE mode: only recalculate last value using prev_ema
+                let e = match ema3_state.prev_ema {
+                    None => {
+                        let sum: f64 = new_buffer_ema3.iter().sum();
+                        sum / (ema3_state.period as f64)
+                    }
+                    Some(prev) => (ema2_val - prev) * ema3_state.k + prev,
+                };
+                (e, ema3_state.prev_ema)
             };
-            (Some(new_ema), Some(new_ema))
+            (Some(ema), Some(ema), prev)
         };
 
         let new_state = Box::new(EMAState {
             period: ema3_state.period,
             k: ema3_state.k,
             current_ema: new_ema3_current,
+            prev_ema: new_ema3_prev,
             lookback_count: new_lookback_ema3,
             buffer: new_buffer_ema3,
         });
@@ -908,6 +1009,7 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -916,6 +1018,7 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -924,6 +1027,7 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -932,6 +1036,7 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -940,6 +1045,7 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -948,6 +1054,7 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
         period,
         k,
         current_ema: None,
+        prev_ema: None,
         lookback_count: 0,
         buffer: Vec::new(),
     });
@@ -1002,23 +1109,38 @@ pub fn overlap_t3_state_next(
                 new_buf[last_idx] = input_value;
             }
 
-            let (ema_val, new_current) = if new_lb < ema_state.period {
-                (None, ema_state.current_ema)
+            let (ema_val, new_current, new_prev) = if new_lb < ema_state.period {
+                (None, ema_state.current_ema, ema_state.prev_ema)
             } else {
-                let new_ema = match ema_state.current_ema {
-                    None => {
-                        let sum: f64 = new_buf.iter().sum();
-                        sum / (ema_state.period as f64)
-                    }
-                    Some(prev_ema) => (input_value - prev_ema) * ema_state.k + prev_ema,
+                let (ema, prev) = if is_new {
+                    // APPEND mode: calculate new EMA and persist previous one
+                    let e = match ema_state.current_ema {
+                        None => {
+                            let sum: f64 = new_buf.iter().sum();
+                            sum / (ema_state.period as f64)
+                        }
+                        Some(current) => (input_value - current) * ema_state.k + current,
+                    };
+                    (e, ema_state.current_ema)
+                } else {
+                    // UPDATE mode: only recalculate last value using prev_ema
+                    let e = match ema_state.prev_ema {
+                        None => {
+                            let sum: f64 = new_buf.iter().sum();
+                            sum / (ema_state.period as f64)
+                        }
+                        Some(prev) => (input_value - prev) * ema_state.k + prev,
+                    };
+                    (e, ema_state.prev_ema)
                 };
-                (Some(new_ema), Some(new_ema))
+                (Some(ema), Some(ema), prev)
             };
 
             let new_state = Box::new(EMAState {
                 period: ema_state.period,
                 k: ema_state.k,
                 current_ema: new_current,
+                prev_ema: new_prev,
                 lookback_count: new_lb,
                 buffer: new_buf,
             });

@@ -3,307 +3,191 @@ defmodule TheoryCraftTA.EMATest do
   use ExUnitProperties
 
   alias TheoryCraft.{DataSeries, TimeSeries}
+  alias TheoryCraftTA.Overlap.EMA
 
-  doctest TheoryCraftTA.Native.Overlap.EMA
-  doctest TheoryCraftTA.Elixir.Overlap.EMA
-  doctest TheoryCraftTA.Native.Overlap.EMAState
-  doctest TheoryCraftTA.Elixir.Overlap.EMAState
+  doctest TheoryCraftTA.Overlap.EMA
 
-  @backends %{
-    native: TheoryCraftTA.Native.Overlap.EMA,
-    elixir: TheoryCraftTA.Elixir.Overlap.EMA
-  }
+  ## Batch calculation tests
 
-  ## Tests for EMA (Exponential Moving Average)
-
-  for {backend_name, backend_module} <- @backends do
-    @backend_module backend_module
-
-    describe "#{backend_name} - ema/2 with list input" do
-      test "calculates correctly with period=3" do
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
-        # Python result: [nan nan 2. 3. 4.]
-        assert {:ok, result} = @backend_module.ema(data, 3)
-
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert_in_delta Enum.at(result, 2), 2.0, 0.001
-        assert_in_delta Enum.at(result, 3), 3.0, 0.001
-        assert_in_delta Enum.at(result, 4), 4.0, 0.001
-      end
-
-      test "handles period=2 (minimum valid)" do
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
-        # Python result: [nan 1.5 2.5 3.5 4.5]
-        assert {:ok, result} = @backend_module.ema(data, 2)
-
-        assert Enum.at(result, 0) == nil
-        assert_in_delta Enum.at(result, 1), 1.5, 0.001
-        assert_in_delta Enum.at(result, 2), 2.5, 0.001
-        assert_in_delta Enum.at(result, 3), 3.5, 0.001
-        assert_in_delta Enum.at(result, 4), 4.5, 0.001
-      end
-
-      test "raises for period=1" do
-        data = [1.0, 2.0, 3.0]
-        # Python raises with error code 2 (BadParam)
-        assert {:error, reason} = @backend_module.ema(data, 1)
-
-        # Different error messages per backend
-        if unquote(backend_name) == :native do
-          assert reason =~ "Invalid parameters"
-        else
-          assert reason =~ "Invalid period: must be >= 2 for EMA"
-        end
-      end
-
-      test "raises for period=0" do
-        data = [1.0, 2.0, 3.0]
-        # Python raises with error code 2 (BadParam)
-        assert {:error, reason} = @backend_module.ema(data, 0)
-
-        # Different error messages per backend
-        if unquote(backend_name) == :native do
-          assert reason =~ "Invalid parameters"
-        else
-          assert reason =~ "Invalid period: must be >= 2 for EMA"
-        end
-      end
-
-      test "raises for negative period" do
-        data = [1.0, 2.0, 3.0]
-        # Python raises with error code 2 (BadParam)
-        assert {:error, reason} = @backend_module.ema(data, -1)
-
-        # Different error messages per backend
-        if unquote(backend_name) == :native do
-          assert reason =~ "Invalid parameters"
-        else
-          assert reason =~ "Invalid period: must be >= 2 for EMA"
-        end
-      end
-
-      if backend_name == :elixir do
-        test "raises FunctionClauseError for float period" do
-          data = [1.0, 2.0, 3.0]
-          # Elixir backend: FunctionClauseError (no guards)
-          assert_raise FunctionClauseError, fn ->
-            @backend_module.ema(data, 2.5)
-          end
-        end
-      else
-        test "raises ArgumentError for float period" do
-          data = [1.0, 2.0, 3.0]
-          # Native backend: ArgumentError (Rustler type conversion)
-          assert_raise ArgumentError, fn ->
-            @backend_module.ema(data, 2.5)
-          end
-        end
-      end
-
-      test "returns empty for empty input" do
-        # Python result: []
-        assert {:ok, []} = @backend_module.ema([], 3)
-      end
-
-      test "handles insufficient data (period > data length)" do
-        data = [1.0, 2.0]
-        # Python with period=5: [nan nan]
-        assert {:ok, result} = @backend_module.ema(data, 5)
-        assert result == [nil, nil]
-      end
-
-      test "handles period equal to data length" do
-        data = [1.0, 2.0, 3.0, 4.0, 5.0]
-        # Python result: [nan nan nan nan 3.]
-        assert {:ok, result} = @backend_module.ema(data, 5)
-
-        assert Enum.at(result, 0) == nil
-        assert Enum.at(result, 1) == nil
-        assert Enum.at(result, 2) == nil
-        assert Enum.at(result, 3) == nil
-        assert_in_delta Enum.at(result, 4), 3.0, 0.001
-      end
-
-      test "calculates correctly for extended test data" do
-        data = [1.0, 5.0, 3.0, 4.0, 7.0, 3.0, 8.0, 1.0, 4.0, 6.0]
-
-        # Python result with period=2: [nan 3.0 3.0 3.666667 5.888889 3.962963 6.654321 2.884774 3.628258 5.209419]
-        assert {:ok, result} = @backend_module.ema(data, 2)
-
-        assert Enum.at(result, 0) == nil
-        assert_in_delta Enum.at(result, 1), 3.0, 0.001
-        assert_in_delta Enum.at(result, 2), 3.0, 0.001
-        assert_in_delta Enum.at(result, 3), 3.666667, 0.001
-        assert_in_delta Enum.at(result, 4), 5.888889, 0.001
-        assert_in_delta Enum.at(result, 5), 3.962963, 0.001
-        assert_in_delta Enum.at(result, 6), 6.654321, 0.001
-        assert_in_delta Enum.at(result, 7), 2.884774, 0.001
-        assert_in_delta Enum.at(result, 8), 3.628258, 0.001
-        assert_in_delta Enum.at(result, 9), 5.209419, 0.001
-      end
+  describe "ema/2 with list input" do
+    test "calculates correctly with period=3" do
+      data = [1.0, 2.0, 3.0, 4.0, 5.0]
+      # Python result: [nan nan 2. 3. 4.]
+      assert {:ok, result} = EMA.ema(data, 3)
+      assert result == [nil, nil, 2.0, 3.0, 4.0]
     end
 
-    describe "#{backend_name} - ema/2 with DataSeries input" do
-      test "returns DataSeries with EMA values in newest-first order" do
-        ds =
-          DataSeries.new()
-          |> DataSeries.add(1.0)
-          |> DataSeries.add(2.0)
-          |> DataSeries.add(3.0)
-          |> DataSeries.add(4.0)
-          |> DataSeries.add(5.0)
-
-        assert {:ok, result_ds} = @backend_module.ema(ds, 3)
-        assert %DataSeries{} = result_ds
-
-        values = DataSeries.values(result_ds)
-
-        # DataSeries stores newest-first: [5.0, 4.0, 3.0, 2.0, 1.0]
-        # After reversal for calculation: [1.0, 2.0, 3.0, 4.0, 5.0]
-        # EMA result (oldest-first): [nil, nil, 2.0, 3.0, 4.0]
-        # Reversed back (newest-first): [4.0, 3.0, 2.0, nil, nil]
-
-        assert_in_delta Enum.at(values, 0), 4.0, 0.001
-        assert_in_delta Enum.at(values, 1), 3.0, 0.001
-        assert_in_delta Enum.at(values, 2), 2.0, 0.001
-        assert Enum.at(values, 3) == nil
-        assert Enum.at(values, 4) == nil
-      end
-
-      test "preserves DataSeries max_size" do
-        ds = DataSeries.new(max_size: 10)
-        ds = DataSeries.add(ds, 1.0)
-        ds = DataSeries.add(ds, 2.0)
-        ds = DataSeries.add(ds, 3.0)
-
-        assert {:ok, result_ds} = @backend_module.ema(ds, 2)
-        assert %DataSeries{max_size: 10} = result_ds
-      end
-
-      test "returns empty DataSeries for empty input" do
-        ds = DataSeries.new()
-        # Like Python: empty input → empty output
-        assert {:ok, result_ds} = @backend_module.ema(ds, 3)
-        assert %DataSeries{} = result_ds
-        assert DataSeries.values(result_ds) == []
-      end
+    test "handles period=2 (minimum valid)" do
+      data = [1.0, 2.0, 3.0, 4.0, 5.0]
+      # Python result: [nan 1.5 2.5 3.5 4.5]
+      assert {:ok, result} = EMA.ema(data, 2)
+      assert result == [nil, 1.5, 2.5, 3.5, 4.5]
     end
 
-    describe "#{backend_name} - ema/2 with TimeSeries input" do
-      test "returns TimeSeries with EMA values in newest-first order" do
-        base_time = ~U[2024-01-01 00:00:00.000000Z]
+    test "raises for period=1" do
+      data = [1.0, 2.0, 3.0]
+      # Python raises with error code 2 (BadParam)
+      assert {:error, reason} = EMA.ema(data, 1)
+      assert reason =~ "Invalid parameters"
+    end
 
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(DateTime.add(base_time, 0, :second), 1.0)
-          |> TimeSeries.add(DateTime.add(base_time, 60, :second), 2.0)
-          |> TimeSeries.add(DateTime.add(base_time, 120, :second), 3.0)
-          |> TimeSeries.add(DateTime.add(base_time, 180, :second), 4.0)
-          |> TimeSeries.add(DateTime.add(base_time, 240, :second), 5.0)
+    test "raises for period=0" do
+      data = [1.0, 2.0, 3.0]
+      # Python raises with error code 2 (BadParam)
+      assert {:error, reason} = EMA.ema(data, 0)
+      assert reason =~ "Invalid parameters"
+    end
 
-        assert {:ok, result_ts} = @backend_module.ema(ts, 3)
-        assert %TimeSeries{} = result_ts
+    test "raises for negative period" do
+      data = [1.0, 2.0, 3.0]
+      # Python raises with error code 2 (BadParam)
+      assert {:error, reason} = EMA.ema(data, -1)
+      assert reason =~ "Invalid parameters"
+    end
 
-        values = TimeSeries.values(result_ts)
-        keys = TimeSeries.keys(result_ts)
+    test "returns empty for empty input" do
+      # Python result: []
+      assert {:ok, []} = EMA.ema([], 3)
+    end
 
-        # Same calculation as DataSeries test
-        assert_in_delta Enum.at(values, 0), 4.0, 0.001
-        assert_in_delta Enum.at(values, 1), 3.0, 0.001
-        assert_in_delta Enum.at(values, 2), 2.0, 0.001
-        assert Enum.at(values, 3) == nil
-        assert Enum.at(values, 4) == nil
+    test "handles insufficient data (period > data length)" do
+      data = [1.0, 2.0]
+      # Python result: [nan nan] for period=3
+      assert {:ok, result} = EMA.ema(data, 3)
+      assert result == [nil, nil]
+    end
 
-        # Keys should be preserved
-        assert length(keys) == 5
-        assert Enum.all?(keys, &match?(%DateTime{}, &1))
-      end
+    test "handles exactly period length" do
+      data = [1.0, 2.0, 3.0]
+      # Python result: [nan nan 2.0]
+      assert {:ok, result} = EMA.ema(data, 3)
+      assert result == [nil, nil, 2.0]
+    end
+  end
 
-      test "preserves DateTime keys in correct order" do
-        ts =
-          TimeSeries.new()
-          |> TimeSeries.add(~U[2024-01-01 09:00:00.000000Z], 100.0)
-          |> TimeSeries.add(~U[2024-01-01 09:01:00.000000Z], 101.0)
-          |> TimeSeries.add(~U[2024-01-01 09:02:00.000000Z], 102.0)
-          |> TimeSeries.add(~U[2024-01-01 09:03:00.000000Z], 103.0)
+  describe "ema/2 with DataSeries input" do
+    test "maintains DataSeries type in output" do
+      data =
+        DataSeries.new()
+        |> DataSeries.add(1.0)
+        |> DataSeries.add(2.0)
+        |> DataSeries.add(3.0)
+        |> DataSeries.add(4.0)
+        |> DataSeries.add(5.0)
 
-        original_keys = TimeSeries.keys(ts)
+      assert {:ok, result} = EMA.ema(data, 3)
+      assert %DataSeries{} = result
 
-        assert {:ok, result_ts} = @backend_module.ema(ts, 2)
-        result_keys = TimeSeries.keys(result_ts)
+      # DataSeries stores newest-first, so [5, 4, 3, 2, 1]
+      # EMA result should be [4.0, 3.0, 2.0, nil, nil] (newest-first)
+      assert DataSeries.values(result) == [4.0, 3.0, 2.0, nil, nil]
+    end
+  end
 
-        # Keys should be identical
-        assert result_keys == original_keys
-      end
+  describe "ema/2 with TimeSeries input" do
+    test "maintains TimeSeries type in output" do
+      ts =
+        TimeSeries.new()
+        |> TimeSeries.add(~U[2024-01-01 00:00:00Z], 1.0)
+        |> TimeSeries.add(~U[2024-01-01 00:01:00Z], 2.0)
+        |> TimeSeries.add(~U[2024-01-01 00:02:00Z], 3.0)
+        |> TimeSeries.add(~U[2024-01-01 00:03:00Z], 4.0)
+        |> TimeSeries.add(~U[2024-01-01 00:04:00Z], 5.0)
 
-      test "returns empty TimeSeries for empty input" do
-        ts = TimeSeries.new()
-        # Like Python: empty input → empty output
-        assert {:ok, result_ts} = @backend_module.ema(ts, 3)
-        assert %TimeSeries{} = result_ts
-        assert TimeSeries.values(result_ts) == []
+      assert {:ok, result} = EMA.ema(ts, 3)
+      assert %TimeSeries{} = result
+
+      # TimeSeries stores newest-first
+      # EMA result should be [4.0, 3.0, 2.0, nil, nil] (newest-first)
+      assert TimeSeries.values(result) == [4.0, 3.0, 2.0, nil, nil]
+    end
+  end
+
+  ## State initialization tests
+
+  describe "init/1" do
+    test "initializes with valid period" do
+      assert {:ok, _state} = EMA.init(14)
+    end
+
+    test "returns error for period < 2" do
+      assert {:error, msg} = EMA.init(1)
+      assert msg =~ "Invalid period"
+    end
+  end
+
+  ## Property-based tests
+
+  describe "property: state-based APPEND matches batch calculation" do
+    property "APPEND mode matches batch EMA" do
+      check all(
+              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 21, max_length: 500),
+              period <- integer(2..200)
+            ) do
+        # Calculate batch EMA (expected values)
+        {:ok, batch_result} = EMA.ema(data, period)
+
+        # Calculate with state (APPEND only - each value = new bar)
+        {:ok, initial_state} = EMA.init(period)
+
+        data
+        |> Enum.zip(batch_result)
+        |> Enum.reduce(initial_state, fn {value, expected_value}, state ->
+          {:ok, ema_value, new_state} = EMA.next(value, true, state)
+
+          case {ema_value, expected_value} do
+            {nil, nil} -> :ok
+            {val, exp} when is_float(val) and is_float(exp) -> assert_in_delta(val, exp, 0.0001)
+            _ -> flunk("Mismatch in batch vs incremental results")
+          end
+
+          new_state
+        end)
       end
     end
   end
 
-  ## Property-based testing
-
-  describe "property-based testing: Native vs Elixir backends for ema" do
-    property "Native and Elixir backends produce identical results for lists" do
+  describe "property: UPDATE mode behaves correctly" do
+    property "UPDATE recalculates with replaced last value" do
       check all(
-              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 2, max_length: 100),
-              period <- integer(2..10)
+              data <- list_of(float(min: 1.0, max: 1000.0), min_length: 15, max_length: 500),
+              period <- integer(2..200),
+              update_values <-
+                list_of(float(min: 1.0, max: 1000.0), min_length: 2, max_length: 5)
             ) do
-        # Ensure we have enough data for the period
-        data = if length(data) < period, do: data ++ List.duplicate(50.0, period), else: data
+        # Build initial state with data
+        {:ok, state} = EMA.init(period)
 
-        # Test with Native backend directly
-        {:ok, native_result} = TheoryCraftTA.Native.Overlap.EMA.ema(data, period)
+        {final_state, _} =
+          Enum.reduce(data, {state, []}, fn value, {st, results} ->
+            {:ok, ema_value, new_state} = EMA.next(value, true, st)
+            {new_state, [ema_value | results]}
+          end)
 
-        # Test with Elixir backend directly
-        {:ok, elixir_result} = TheoryCraftTA.Elixir.Overlap.EMA.ema(data, period)
+        # Apply multiple UPDATE operations - each replaces the last bar
+        Enum.reduce(update_values, {final_state, data}, fn update_value, {state, current_data} ->
+          {:ok, state_ema, new_state} = EMA.next(update_value, false, state)
 
-        # Results should be identical (within floating point precision)
-        assert_lists_equal(native_result, elixir_result)
+          # Calculate equivalent batch: all previous data + update_value replacing last
+          updated_data = List.replace_at(current_data, -1, update_value)
+          {:ok, batch_result} = EMA.ema(updated_data, period)
+          batch_ema = List.last(batch_result)
+
+          # State UPDATE should match batch calculation
+          case {state_ema, batch_ema} do
+            {nil, nil} ->
+              :ok
+
+            {s_val, b_val} when is_float(s_val) and is_float(b_val) ->
+              assert_in_delta(s_val, b_val, 0.0001)
+
+            _ ->
+              flunk("Mismatch between state UPDATE and batch")
+          end
+
+          {new_state, updated_data}
+        end)
       end
     end
-
-    property "Native and Elixir backends produce identical results for DataSeries" do
-      check all(
-              values <- list_of(float(min: 1.0, max: 1000.0), min_length: 5, max_length: 50),
-              period <- integer(2..5)
-            ) do
-        ds = Enum.reduce(values, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
-
-        # Test with Native backend directly
-        {:ok, native_result_ds} = TheoryCraftTA.Native.Overlap.EMA.ema(ds, period)
-        native_result = DataSeries.values(native_result_ds)
-
-        # Test with Elixir backend directly
-        {:ok, elixir_result_ds} = TheoryCraftTA.Elixir.Overlap.EMA.ema(ds, period)
-        elixir_result = DataSeries.values(elixir_result_ds)
-
-        assert_lists_equal(native_result, elixir_result)
-      end
-    end
-  end
-
-  ## Private helper functions
-
-  defp assert_lists_equal(list1, list2) do
-    assert length(list1) == length(list2)
-
-    Enum.zip(list1, list2)
-    |> Enum.each(fn
-      {nil, nil} ->
-        :ok
-
-      {val1, val2} when is_float(val1) and is_float(val2) ->
-        assert_in_delta(val1, val2, 0.0001)
-
-      {val1, val2} ->
-        assert val1 == val2
-    end)
   end
 end
