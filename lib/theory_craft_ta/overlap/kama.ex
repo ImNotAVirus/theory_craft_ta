@@ -35,7 +35,7 @@ defmodule TheoryCraftTA.Overlap.KAMA do
   ## Examples
 
       iex> TheoryCraftTA.Overlap.KAMA.kama([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], 5)
-      {:ok, [nil, nil, nil, nil, nil, 5.44444444, 6.13580247, 6.96433471, 7.86907484, 8.81615269]}
+      {:ok, [nil, nil, nil, nil, nil, 5.444444444444445, 6.135802469135802, 6.964334705075445, 7.8690748361530245, 8.81615268675168]}
 
   """
 
@@ -61,7 +61,7 @@ defmodule TheoryCraftTA.Overlap.KAMA do
   ## Examples
 
       iex> TheoryCraftTA.Overlap.KAMA.kama([1.0, 2.0, 3.0, 4.0, 5.0], 2)
-      {:ok, [nil, nil, 2.888888888888889, 3.7901234567901234, 4.783950617283951]}
+      {:ok, [nil, nil, 2.444444444444444, 3.135802469135802, 3.964334705075445]}
 
   """
   @spec kama(TheoryCraftTA.source(), pos_integer()) ::
@@ -105,9 +105,9 @@ defmodule TheoryCraftTA.Overlap.KAMA do
 
   ## Parameters
 
+    - `state` - Current state reference
     - `value` - New price value
     - `is_new_bar` - true for APPEND (new bar), false for UPDATE (modify last bar)
-    - `state` - Current state reference
 
   ## Returns
 
@@ -117,18 +117,24 @@ defmodule TheoryCraftTA.Overlap.KAMA do
   ## Examples
 
       iex> {:ok, state} = TheoryCraftTA.Overlap.KAMA.init(5)
-      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(1.0, true, state)
-      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(2.0, true, state)
-      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(3.0, true, state)
-      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(4.0, true, state)
-      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(5.0, true, state)
-      iex> {:ok, kama, _state} = TheoryCraftTA.Overlap.KAMA.next(6.0, true, state)
+      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(state, 1.0, true)
+      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(state, 2.0, true)
+      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(state, 3.0, true)
+      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(state, 4.0, true)
+      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.KAMA.next(state, 5.0, true)
+      iex> {:ok, kama, _state} = TheoryCraftTA.Overlap.KAMA.next(state, 6.0, true)
       iex> is_float(kama)
       true
 
   """
-  @spec next(float(), boolean(), t()) :: {:ok, float() | nil, t()} | {:error, String.t()}
-  def next(value, is_new_bar, state) do
-    Native.overlap_kama_state_next(value, is_new_bar, state)
+  @spec next(t(), float(), boolean()) :: {:ok, float() | nil, t()} | {:error, String.t()}
+  def next(state, value, is_new_bar) do
+    case Native.overlap_kama_state_next(state, value, is_new_bar) do
+      {:ok, {kama_value, new_state}} ->
+        {:ok, kama_value, new_state}
+
+      {:error, _reason} = error ->
+        error
+    end
   end
 end

@@ -82,7 +82,7 @@ defmodule TheoryCraftTA do
     as: :next
 
   defdelegate kama_state_init(period), to: TheoryCraftTA.Overlap.KAMA, as: :init
-  defdelegate kama_state_next(value, is_new_bar, state), to: TheoryCraftTA.Overlap.KAMA, as: :next
+  defdelegate kama_state_next(state, value, is_new_bar), to: TheoryCraftTA.Overlap.KAMA, as: :next
 
   ## Batch indicators - Bang functions
 
@@ -201,9 +201,9 @@ defmodule TheoryCraftTA do
   def kama_state_init!(period), do: unwrap_init!(kama_state_init(period), "KAMA")
 
   @doc "Process next value with KAMA state. See `kama_state_next/3` for details."
-  @spec kama_state_next!(float(), boolean(), term()) :: {float() | nil, term()}
-  def kama_state_next!(value, is_new_bar, state),
-    do: unwrap_next!(kama_state_next(value, is_new_bar, state), "KAMA")
+  @spec kama_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def kama_state_next!(state, value, is_new_bar),
+    do: unwrap_next!(kama_state_next(state, value, is_new_bar), "KAMA")
 
   ## Private functions
 
