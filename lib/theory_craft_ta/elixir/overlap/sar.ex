@@ -97,14 +97,21 @@ defmodule TheoryCraftTA.Elixir.Overlap.SAR do
     [h0, h1 | _] = high
     [l0, l1 | _] = low
 
-    # Determine initial trend direction
+    # Determine initial trend direction using Directional Movement
+    # +DM = max(0, high[i] - high[i-1])
+    # -DM = max(0, low[i-1] - low[i])
+    # If -DM > +DM -> Downtrend, else -> Uptrend
+    # If tied (including both zero) -> Default to Uptrend (LONG)
+    plus_dm = max(0.0, h1 - h0)
+    minus_dm = max(0.0, l0 - l1)
+
     {is_long, initial_sar, initial_ep} =
-      if h1 - h0 > l0 - l1 do
-        # Uptrend
-        {true, l0, h1}
-      else
+      if minus_dm > plus_dm do
         # Downtrend
         {false, h0, l1}
+      else
+        # Uptrend (includes ties - default to LONG)
+        {true, l0, h1}
       end
 
     # Initialize state
@@ -126,14 +133,14 @@ defmodule TheoryCraftTA.Elixir.Overlap.SAR do
         if idx == 0 do
           {nil, state}
         else
-          calculate_sar_for_bar(h, l, state)
+          calculate_sar_for_bar(h, l, idx, high, low, state)
         end
       end)
 
     results
   end
 
-  defp calculate_sar_for_bar(high, low, state) do
+  defp calculate_sar_for_bar(bar_high, bar_low, idx, high, low, state) do
     %{is_long: is_long, sar: sar, ep: ep, af: af, acceleration: accel, maximum: max_af} = state
 
     # Calculate new SAR
@@ -143,17 +150,24 @@ defmodule TheoryCraftTA.Elixir.Overlap.SAR do
     {final_sar, new_ep, new_af, new_is_long} =
       if is_long do
         # Long position
-        if low <= new_sar do
+        if bar_low <= new_sar do
           # Reversal to short
-          {ep, low, accel, false}
+          {ep, bar_low, accel, false}
         else
           # Continue long
-          adjusted_sar = new_sar
+          # Adjust SAR: cannot be above low of previous 2 bars
+          adjusted_sar =
+            if idx >= 2 do
+              prev_low = min(Enum.at(low, idx - 1), Enum.at(low, idx - 2))
+              min(new_sar, prev_low)
+            else
+              new_sar
+            end
 
           # Update EP and AF if new high
           {updated_ep, updated_af} =
-            if high > ep do
-              {high, min(af + accel, max_af)}
+            if bar_high > ep do
+              {bar_high, min(af + accel, max_af)}
             else
               {ep, af}
             end
@@ -162,17 +176,24 @@ defmodule TheoryCraftTA.Elixir.Overlap.SAR do
         end
       else
         # Short position
-        if high >= new_sar do
+        if bar_high >= new_sar do
           # Reversal to long
-          {ep, high, accel, true}
+          {ep, bar_high, accel, true}
         else
           # Continue short
-          adjusted_sar = new_sar
+          # Adjust SAR: cannot be below high of previous 2 bars
+          adjusted_sar =
+            if idx >= 2 do
+              prev_high = max(Enum.at(high, idx - 1), Enum.at(high, idx - 2))
+              max(new_sar, prev_high)
+            else
+              new_sar
+            end
 
           # Update EP and AF if new low
           {updated_ep, updated_af} =
-            if low < ep do
-              {low, min(af + accel, max_af)}
+            if bar_low < ep do
+              {bar_low, min(af + accel, max_af)}
             else
               {ep, af}
             end
