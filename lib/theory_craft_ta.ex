@@ -47,6 +47,7 @@ defmodule TheoryCraftTA do
   defdelegate trima(data, period), to: TheoryCraftTA.Overlap.TRIMA
   defdelegate t3(data, period, vfactor), to: TheoryCraftTA.Overlap.T3
   defdelegate midpoint(data, period), to: TheoryCraftTA.Overlap.MIDPOINT
+  defdelegate midprice(high, low, period), to: TheoryCraftTA.Overlap.MIDPRICE
 
   ## State indicators - Delegates
 
@@ -78,6 +79,12 @@ defmodule TheoryCraftTA do
 
   defdelegate midpoint_state_next(value, is_new_bar, state),
     to: TheoryCraftTA.Overlap.MIDPOINT,
+    as: :next
+
+  defdelegate midprice_state_init(period), to: TheoryCraftTA.Overlap.MIDPRICE, as: :init
+
+  defdelegate midprice_state_next(state, high_value, low_value, is_new_bar),
+    to: TheoryCraftTA.Overlap.MIDPRICE,
     as: :next
 
   ## Batch indicators - Bang functions
@@ -113,6 +120,10 @@ defmodule TheoryCraftTA do
   @doc "MidPoint over period. See `midpoint/2` for details."
   @spec midpoint!(source(), pos_integer()) :: source()
   def midpoint!(data, period), do: unwrap_batch!(midpoint(data, period), "MIDPOINT")
+
+  @doc "Midpoint Price over period. See `midprice/3` for details."
+  @spec midprice!(source(), source(), pos_integer()) :: source()
+  def midprice!(high, low, period), do: unwrap_batch!(midprice(high, low, period), "MIDPRICE")
 
   ## State indicators - Bang functions
 
@@ -188,113 +199,14 @@ defmodule TheoryCraftTA do
   def midpoint_state_next!(value, is_new_bar, state),
     do: unwrap_next!(midpoint_state_next(value, is_new_bar, state), "MIDPOINT")
 
-  @doc """
-  Initialize MIDPRICE state for incremental calculations.
-
-  Creates a new state for calculating MIDPRICE values incrementally.
-  This is useful for real-time or streaming data applications.
-
-  ## Parameters
-    - `period` - Number of periods for the midprice calculation (must be an integer >= 2)
-
-  ## Returns
-    - `{:ok, state}` - Initial state for MIDPRICE calculations
-    - `{:error, reason}` - If period is invalid
-
-  ## Examples
-      iex> {:ok, state} = TheoryCraftTA.midprice_state_init(3)
-      iex> is_reference(state) or is_struct(state)
-      true
-
-  """
-  @spec midprice_state_init(pos_integer()) :: {:ok, term()} | {:error, String.t()}
-  defdelegate midprice_state_init(period),
-    to: Module.concat([@backend, Overlap, MIDPRICEState]),
-    as: :init
-
-  @doc """
-  Initialize MIDPRICE state for incremental calculations - Bang version.
-
-  Same as `midprice_state_init/1` but raises an exception instead of returning an error tuple.
-
-  ## Parameters
-    - `period` - Number of periods for the midprice calculation (must be an integer >= 2)
-
-  ## Returns
-    - `state` - Initial state for MIDPRICE calculations
-
-  ## Raises
-    - `RuntimeError` if validation fails
-
-  ## Examples
-      iex> state = TheoryCraftTA.midprice_state_init!(3)
-      iex> is_reference(state) or is_struct(state)
-      true
-
-  """
+  @doc "Initialize MIDPRICE state. See `midprice_state_init/1` for details."
   @spec midprice_state_init!(pos_integer()) :: term()
-  def midprice_state_init!(period) do
-    unwrap_init!(midprice_state_init(period), "MIDPRICE")
-  end
+  def midprice_state_init!(period), do: unwrap_init!(midprice_state_init(period), "MIDPRICE")
 
-  @doc """
-  Process next high/low values with MIDPRICE state.
-
-  Updates the MIDPRICE state with new high and low values and returns the current MIDPRICE value.
-
-  ## Parameters
-    - `state` - Current MIDPRICE state (from `midprice_state_init/1` or previous `midprice_state_next/4`)
-    - `high_value` - New high price data point (float)
-    - `low_value` - New low price data point (float)
-    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
-
-  ## Returns
-    - `{:ok, midprice_value, new_state}` - The MIDPRICE value (or nil during warmup) and updated state
-    - `{:error, reason}` - If calculation fails
-
-  ## Examples
-      iex> {:ok, state} = TheoryCraftTA.midprice_state_init(2)
-      iex> {:ok, nil, state2} = TheoryCraftTA.midprice_state_next(state, 10.0, 8.0, true)
-      iex> {:ok, midprice, _state3} = TheoryCraftTA.midprice_state_next(state2, 11.0, 9.0, true)
-      iex> midprice
-      9.5
-
-  """
-  @spec midprice_state_next(term(), float(), float(), boolean()) ::
-          {:ok, float() | nil, term()} | {:error, String.t()}
-  defdelegate midprice_state_next(state, high_value, low_value, is_new_bar),
-    to: Module.concat([@backend, Overlap, MIDPRICEState]),
-    as: :next
-
-  @doc """
-  Process next high/low values with MIDPRICE state - Bang version.
-
-  Same as `midprice_state_next/4` but raises an exception instead of returning an error tuple.
-
-  ## Parameters
-    - `state` - Current MIDPRICE state (from `midprice_state_init!/1` or previous `midprice_state_next!/4`)
-    - `high_value` - New high price data point (float)
-    - `low_value` - New low price data point (float)
-    - `is_new_bar` - Whether this is a new bar (true) or an update to the last bar (false)
-
-  ## Returns
-    - `{midprice_value, new_state}` - The MIDPRICE value (or nil during warmup) and updated state
-
-  ## Raises
-    - `RuntimeError` if calculation fails
-
-  ## Examples
-      iex> state = TheoryCraftTA.midprice_state_init!(2)
-      iex> {nil, state2} = TheoryCraftTA.midprice_state_next!(state, 10.0, 8.0, true)
-      iex> {midprice, _state3} = TheoryCraftTA.midprice_state_next!(state2, 11.0, 9.0, true)
-      iex> midprice
-      9.5
-
-  """
+  @doc "Process next high/low with MIDPRICE state. See `midprice_state_next/4` for details."
   @spec midprice_state_next!(term(), float(), float(), boolean()) :: {float() | nil, term()}
-  def midprice_state_next!(state, high_value, low_value, is_new_bar) do
-    unwrap_next!(midprice_state_next(state, high_value, low_value, is_new_bar), "MIDPRICE")
-  end
+  def midprice_state_next!(state, high_value, low_value, is_new_bar),
+    do: unwrap_next!(midprice_state_next(state, high_value, low_value, is_new_bar), "MIDPRICE")
 
   ## Private functions
 
