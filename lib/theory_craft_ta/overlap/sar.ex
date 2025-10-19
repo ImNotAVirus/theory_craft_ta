@@ -142,6 +142,12 @@ defmodule TheoryCraftTA.Overlap.SAR do
   @spec next(t(), float(), float(), boolean()) ::
           {:ok, float() | nil, t()} | {:error, String.t()}
   def next(state, high, low, is_new_bar) do
-    Native.overlap_sar_state_next(state, high, low, is_new_bar)
+    case Native.overlap_sar_state_next(state, high, low, is_new_bar) do
+      {:ok, {sar_value, new_state}} ->
+        {:ok, sar_value, new_state}
+
+      {:error, _reason} = error ->
+        error
+    end
   end
 end
