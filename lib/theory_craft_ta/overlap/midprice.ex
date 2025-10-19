@@ -98,10 +98,10 @@ defmodule TheoryCraftTA.Overlap.MIDPRICE do
 
   ## Parameters
 
+    - `state` - Current state reference
     - `high_value` - New high price value
     - `low_value` - New low price value
     - `is_new_bar` - true for APPEND (new bar), false for UPDATE (modify last bar)
-    - `state` - Current state reference
 
   ## Returns
 
@@ -111,14 +111,20 @@ defmodule TheoryCraftTA.Overlap.MIDPRICE do
   ## Examples
 
       iex> {:ok, state} = TheoryCraftTA.Overlap.MIDPRICE.init(2)
-      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.MIDPRICE.next(10.0, 8.0, true, state)
-      iex> {:ok, midprice, _state} = TheoryCraftTA.Overlap.MIDPRICE.next(11.0, 9.0, true, state)
+      iex> {:ok, nil, state} = TheoryCraftTA.Overlap.MIDPRICE.next(state, 10.0, 8.0, true)
+      iex> {:ok, midprice, _state} = TheoryCraftTA.Overlap.MIDPRICE.next(state, 11.0, 9.0, true)
       iex> midprice
       9.5
 
   """
-  @spec next(float(), float(), boolean(), t()) :: {:ok, float() | nil, t()} | {:error, String.t()}
-  def next(high_value, low_value, is_new_bar, state) do
-    Native.overlap_midprice_state_next(state, high_value, low_value, is_new_bar)
+  @spec next(t(), float(), float(), boolean()) :: {:ok, float() | nil, t()} | {:error, String.t()}
+  def next(state, high_value, low_value, is_new_bar) do
+    case Native.overlap_midprice_state_next(state, high_value, low_value, is_new_bar) do
+      {:ok, {midprice_value, new_state}} ->
+        {:ok, midprice_value, new_state}
+
+      {:error, _reason} = error ->
+        error
+    end
   end
 end
