@@ -3,8 +3,12 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
   use ExUnitProperties
 
   alias TheoryCraft.{DataSeries, TimeSeries}
+  alias TheoryCraftTA.Overlap.HT_TRENDLINE
 
-  @backend TheoryCraftTA.Native.Overlap.HT_TRENDLINE
+  ## Setup
+
+  @moduletag :ht_trendline
+  @moduletag timeout: 120_000
 
   ## Tests
 
@@ -13,7 +17,7 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
       data = test_data_100()
       expected = expected_output_100()
 
-      assert {:ok, result} = @backend.ht_trendline(data)
+      assert {:ok, result} = HT_TRENDLINE.ht_trendline(data)
 
       for i <- 0..62 do
         assert Enum.at(result, i) == nil
@@ -33,13 +37,13 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
 
     test "returns all nil for data length < 64" do
       data = Enum.take(test_data_100(), 63)
-      assert {:ok, result} = @backend.ht_trendline(data)
+      assert {:ok, result} = HT_TRENDLINE.ht_trendline(data)
 
       assert Enum.all?(result, &(&1 == nil))
     end
 
     test "returns empty for empty input" do
-      assert {:ok, []} = @backend.ht_trendline([])
+      assert {:ok, []} = HT_TRENDLINE.ht_trendline([])
     end
   end
 
@@ -50,7 +54,7 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
 
       ds = Enum.reduce(data, DataSeries.new(), fn val, acc -> DataSeries.add(acc, val) end)
 
-      assert {:ok, result_ds} = @backend.ht_trendline(ds)
+      assert {:ok, result_ds} = HT_TRENDLINE.ht_trendline(ds)
       assert %DataSeries{} = result_ds
 
       values = DataSeries.values(result_ds)
@@ -80,7 +84,7 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
           TimeSeries.add(acc, time, val)
         end)
 
-      assert {:ok, result_ts} = @backend.ht_trendline(ts)
+      assert {:ok, result_ts} = HT_TRENDLINE.ht_trendline(ts)
       assert %TimeSeries{} = result_ts
 
       values = TimeSeries.values(result_ts)
@@ -96,13 +100,78 @@ defmodule TheoryCraftTA.HT_TRENDLINETest do
     end
   end
 
-  @tag :native_backend
+  describe "property: state-based APPEND matches batch calculation" do
+    property "APPEND mode matches batch HT_TRENDLINE" do
+      check all(
+              data_length <- integer(64..150),
+              data <- list_of(float(min: 10.0, max: 200.0), length: data_length)
+            ) do
+        {:ok, batch_result} = HT_TRENDLINE.ht_trendline(data)
+
+        {:ok, initial_state} = HT_TRENDLINE.init()
+
+        data
+        |> Enum.zip(batch_result)
+        |> Enum.reduce(initial_state, fn {value, expected_value}, state ->
+          {:ok, ht_value, new_state} = HT_TRENDLINE.next(state, value, true)
+
+          case {ht_value, expected_value} do
+            {nil, nil} -> :ok
+            {val, exp} when is_float(val) and is_float(exp) -> assert_in_delta(val, exp, 0.0001)
+            _ -> flunk("Mismatch in batch vs incremental results")
+          end
+
+          new_state
+        end)
+      end
+    end
+  end
+
+  describe "property: UPDATE mode behaves correctly" do
+    property "UPDATE recalculates with replaced last value" do
+      check all(
+              data_length <- integer(64..100),
+              data <- list_of(float(min: 10.0, max: 200.0), length: data_length),
+              update_values <- list_of(float(min: 10.0, max: 200.0), min_length: 2, max_length: 5)
+            ) do
+        {:ok, state} = HT_TRENDLINE.init()
+
+        {final_state, _} =
+          Enum.reduce(data, {state, []}, fn value, {st, results} ->
+            {:ok, ht_value, new_state} = HT_TRENDLINE.next(st, value, true)
+            {new_state, [ht_value | results]}
+          end)
+
+        Enum.reduce(update_values, {final_state, data}, fn update_value, {state, current_data} ->
+          {:ok, state_ht, new_state} = HT_TRENDLINE.next(state, update_value, false)
+
+          updated_data = List.replace_at(current_data, -1, update_value)
+          {:ok, batch_result} = HT_TRENDLINE.ht_trendline(updated_data)
+          batch_ht = List.last(batch_result)
+
+          case {state_ht, batch_ht} do
+            {nil, nil} ->
+              :ok
+
+            {s_val, b_val} when is_float(s_val) and is_float(b_val) ->
+              assert_in_delta(s_val, b_val, 0.0001)
+
+            _ ->
+              flunk("Mismatch between state UPDATE and batch")
+          end
+
+          {new_state, updated_data}
+        end)
+      end
+    end
+  end
+
   property "produces valid output" do
     check all(
             data_length <- integer(64..200),
             data <- list_of(float(min: 10.0, max: 200.0), length: data_length)
           ) do
-      assert {:ok, result} = @backend.ht_trendline(data)
+      assert {:ok, result} = HT_TRENDLINE.ht_trendline(data)
 
       Enum.each(result, fn val ->
         if val != nil do

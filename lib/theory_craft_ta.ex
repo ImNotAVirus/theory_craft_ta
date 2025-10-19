@@ -47,6 +47,7 @@ defmodule TheoryCraftTA do
   defdelegate trima(data, period), to: TheoryCraftTA.Overlap.TRIMA
   defdelegate t3(data, period, vfactor), to: TheoryCraftTA.Overlap.T3
   defdelegate midpoint(data, period), to: TheoryCraftTA.Overlap.MIDPOINT
+  defdelegate ht_trendline(data), to: TheoryCraftTA.Overlap.HT_TRENDLINE
 
   ## State indicators - Delegates
 
@@ -78,6 +79,12 @@ defmodule TheoryCraftTA do
 
   defdelegate midpoint_state_next(value, is_new_bar, state),
     to: TheoryCraftTA.Overlap.MIDPOINT,
+    as: :next
+
+  defdelegate ht_trendline_state_init(), to: TheoryCraftTA.Overlap.HT_TRENDLINE, as: :init
+
+  defdelegate ht_trendline_state_next(state, value, is_new_bar),
+    to: TheoryCraftTA.Overlap.HT_TRENDLINE,
     as: :next
 
   ## Batch indicators - Bang functions
@@ -113,6 +120,10 @@ defmodule TheoryCraftTA do
   @doc "MidPoint over period. See `midpoint/2` for details."
   @spec midpoint!(source(), pos_integer()) :: source()
   def midpoint!(data, period), do: unwrap_batch!(midpoint(data, period), "MIDPOINT")
+
+  @doc "Hilbert Transform - Instantaneous Trendline. See `ht_trendline/1` for details."
+  @spec ht_trendline!(source()) :: source()
+  def ht_trendline!(data), do: unwrap_batch!(ht_trendline(data), "HT_TRENDLINE")
 
   ## State indicators - Bang functions
 
@@ -187,6 +198,15 @@ defmodule TheoryCraftTA do
   @spec midpoint_state_next!(float(), boolean(), term()) :: {float() | nil, term()}
   def midpoint_state_next!(value, is_new_bar, state),
     do: unwrap_next!(midpoint_state_next(value, is_new_bar, state), "MIDPOINT")
+
+  @doc "Initialize HT_TRENDLINE state. See `ht_trendline_state_init/0` for details."
+  @spec ht_trendline_state_init!() :: term()
+  def ht_trendline_state_init!(), do: unwrap_init!(ht_trendline_state_init(), "HT_TRENDLINE")
+
+  @doc "Process next value with HT_TRENDLINE state. See `ht_trendline_state_next/3` for details."
+  @spec ht_trendline_state_next!(term(), float(), boolean()) :: {float() | nil, term()}
+  def ht_trendline_state_next!(state, value, is_new_bar),
+    do: unwrap_next!(ht_trendline_state_next(state, value, is_new_bar), "HT_TRENDLINE")
 
   ## Private functions
 
