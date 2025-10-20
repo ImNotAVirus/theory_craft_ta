@@ -109,14 +109,23 @@ pub fn overlap_ema_state_next(
         state.lookback_count
     };
 
-    // Update buffer
-    let mut new_buffer = state.buffer.clone();
-    if is_new_bar || new_buffer.is_empty() {
-        new_buffer.push(value);
+    // Update buffer ONLY during warmup OR if we need it for SMA calculation
+    // We need buffer until both current_ema AND prev_ema are populated
+    // (prev_ema is None until second bar after warmup)
+    let new_buffer = if new_lookback < state.period || state.prev_ema.is_none() {
+        // Still in warmup or might need buffer for SMA in UPDATE mode
+        let mut buf = state.buffer.clone();
+        if is_new_bar || buf.is_empty() {
+            buf.push(value);
+        } else {
+            let last_idx = buf.len() - 1;
+            buf[last_idx] = value;
+        }
+        buf
     } else {
-        let last_idx = new_buffer.len() - 1;
-        new_buffer[last_idx] = value;
-    }
+        // After warmup AND both EMAs calculated - clear buffer to save memory
+        Vec::new()
+    };
 
     // Warmup phase: need 'period' bars before we can calculate EMA
     if new_lookback < state.period {
@@ -139,6 +148,7 @@ pub fn overlap_ema_state_next(
         let ema = match state.current_ema {
             None => {
                 // First EMA: use SMA as seed (average of all values in buffer)
+                // Buffer should have exactly 'period' values at this point
                 let sum: f64 = new_buffer.iter().sum();
                 sum / (state.period as f64)
             }
@@ -151,6 +161,7 @@ pub fn overlap_ema_state_next(
         let ema = match state.prev_ema {
             None => {
                 // First bar being updated: use SMA
+                // Buffer should have exactly 'period' values at this point
                 let sum: f64 = new_buffer.iter().sum();
                 sum / (state.period as f64)
             }
@@ -401,14 +412,20 @@ pub fn overlap_dema_state_next(
         ema1_state.lookback_count
     };
 
-    // Update buffer for EMA1
-    let mut new_buffer_ema1 = ema1_state.buffer.clone();
-    if is_new_bar || new_buffer_ema1.is_empty() {
-        new_buffer_ema1.push(value);
+    // Update buffer for EMA1 ONLY during warmup
+    let new_buffer_ema1 = if new_lookback_ema1 < ema1_state.period || ema1_state.prev_ema.is_none()
+    {
+        let mut buf = ema1_state.buffer.clone();
+        if is_new_bar || buf.is_empty() {
+            buf.push(value);
+        } else {
+            let last_idx = buf.len() - 1;
+            buf[last_idx] = value;
+        }
+        buf
     } else {
-        let last_idx = new_buffer_ema1.len() - 1;
-        new_buffer_ema1[last_idx] = value;
-    }
+        Vec::new()
+    };
 
     // Calculate EMA1 value
     let (ema1_value, new_ema1_current, new_ema1_prev) = if new_lookback_ema1 < ema1_state.period {
@@ -456,14 +473,20 @@ pub fn overlap_dema_state_next(
             ema2_state.lookback_count
         };
 
-        // Update buffer for EMA2
-        let mut new_buffer_ema2 = ema2_state.buffer.clone();
-        if is_new_bar || new_buffer_ema2.is_empty() {
-            new_buffer_ema2.push(ema1_val);
-        } else {
-            let last_idx = new_buffer_ema2.len() - 1;
-            new_buffer_ema2[last_idx] = ema1_val;
-        }
+        // Update buffer for EMA2 ONLY during warmup
+        let new_buffer_ema2 =
+            if new_lookback_ema2 < ema2_state.period || ema2_state.prev_ema.is_none() {
+                let mut buf = ema2_state.buffer.clone();
+                if is_new_bar || buf.is_empty() {
+                    buf.push(ema1_val);
+                } else {
+                    let last_idx = buf.len() - 1;
+                    buf[last_idx] = ema1_val;
+                }
+                buf
+            } else {
+                Vec::new()
+            };
 
         // Calculate EMA2 value
         let (ema2_val, new_ema2_current, new_ema2_prev) = if new_lookback_ema2 < ema2_state.period {
@@ -603,14 +626,20 @@ pub fn overlap_tema_state_next(
         ema1_state.lookback_count
     };
 
-    // Update buffer for EMA1
-    let mut new_buffer_ema1 = ema1_state.buffer.clone();
-    if is_new_bar || new_buffer_ema1.is_empty() {
-        new_buffer_ema1.push(value);
+    // Update buffer for EMA1 ONLY during warmup
+    let new_buffer_ema1 = if new_lookback_ema1 < ema1_state.period || ema1_state.prev_ema.is_none()
+    {
+        let mut buf = ema1_state.buffer.clone();
+        if is_new_bar || buf.is_empty() {
+            buf.push(value);
+        } else {
+            let last_idx = buf.len() - 1;
+            buf[last_idx] = value;
+        }
+        buf
     } else {
-        let last_idx = new_buffer_ema1.len() - 1;
-        new_buffer_ema1[last_idx] = value;
-    }
+        Vec::new()
+    };
 
     // Calculate EMA1 value
     let (ema1_value, new_ema1_current, new_ema1_prev) = if new_lookback_ema1 < ema1_state.period {
@@ -658,14 +687,20 @@ pub fn overlap_tema_state_next(
             ema2_state.lookback_count
         };
 
-        // Update buffer for EMA2
-        let mut new_buffer_ema2 = ema2_state.buffer.clone();
-        if is_new_bar || new_buffer_ema2.is_empty() {
-            new_buffer_ema2.push(ema1_val);
-        } else {
-            let last_idx = new_buffer_ema2.len() - 1;
-            new_buffer_ema2[last_idx] = ema1_val;
-        }
+        // Update buffer for EMA2 ONLY during warmup
+        let new_buffer_ema2 =
+            if new_lookback_ema2 < ema2_state.period || ema2_state.prev_ema.is_none() {
+                let mut buf = ema2_state.buffer.clone();
+                if is_new_bar || buf.is_empty() {
+                    buf.push(ema1_val);
+                } else {
+                    let last_idx = buf.len() - 1;
+                    buf[last_idx] = ema1_val;
+                }
+                buf
+            } else {
+                Vec::new()
+            };
 
         // Calculate EMA2 value
         let (ema2_val, new_ema2_current, new_ema2_prev) = if new_lookback_ema2 < ema2_state.period {
@@ -719,14 +754,20 @@ pub fn overlap_tema_state_next(
             ema3_state.lookback_count
         };
 
-        // Update buffer for EMA3
-        let mut new_buffer_ema3 = ema3_state.buffer.clone();
-        if is_new_bar || new_buffer_ema3.is_empty() {
-            new_buffer_ema3.push(ema2_val);
-        } else {
-            let last_idx = new_buffer_ema3.len() - 1;
-            new_buffer_ema3[last_idx] = ema2_val;
-        }
+        // Update buffer for EMA3 ONLY during warmup
+        let new_buffer_ema3 =
+            if new_lookback_ema3 < ema3_state.period || ema3_state.prev_ema.is_none() {
+                let mut buf = ema3_state.buffer.clone();
+                if is_new_bar || buf.is_empty() {
+                    buf.push(ema2_val);
+                } else {
+                    let last_idx = buf.len() - 1;
+                    buf[last_idx] = ema2_val;
+                }
+                buf
+            } else {
+                Vec::new()
+            };
 
         // Calculate EMA3 value
         let (ema3_val, new_ema3_current, new_ema3_prev) = if new_lookback_ema3 < ema3_state.period {
@@ -1101,13 +1142,18 @@ pub fn overlap_t3_state_next(
                 ema_state.lookback_count
             };
 
-            let mut new_buf = ema_state.buffer.clone();
-            if is_new || new_buf.is_empty() {
-                new_buf.push(input_value);
+            let new_buf = if new_lb < ema_state.period || ema_state.prev_ema.is_none() {
+                let mut buf = ema_state.buffer.clone();
+                if is_new || buf.is_empty() {
+                    buf.push(input_value);
+                } else {
+                    let last_idx = buf.len() - 1;
+                    buf[last_idx] = input_value;
+                }
+                buf
             } else {
-                let last_idx = new_buf.len() - 1;
-                new_buf[last_idx] = input_value;
-            }
+                Vec::new()
+            };
 
             let (ema_val, new_current, new_prev) = if new_lb < ema_state.period {
                 (None, ema_state.current_ema, ema_state.prev_ema)
