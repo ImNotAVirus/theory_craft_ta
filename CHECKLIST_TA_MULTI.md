@@ -148,6 +148,25 @@ python -c "import talib; import numpy as np; data = np.array([1.0, 2.0, 3.0, 4.0
   - `{indicator}_state_next!/3` with minimal @doc referencing `{indicator}_state_next/3`
 - Format: `mix format lib/theory_craft_ta.ex`
 
+## Phase 8b: TA macro (syntactic sugar)
+
+- Edit `lib/theory_craft_ta/ta.ex`
+- Add macro for the indicator in the appropriate section (e.g., `## Overlap indicators`)
+- Signature depends on indicator parameters:
+  - Single parameter: `defmacro {indicator}(data_or_accessor, period, opts \\ [])`
+  - Multiple parameters (e.g., T3): `defmacro {indicator}(data_or_accessor, period, param2, opts \\ [])`
+- Macro should:
+  - Parse `data_or_accessor` with `parse_data_accessor/1` to extract data name and optional source
+  - Build base options: `[period: period, data: data]` (+ additional params if any)
+  - Add source to options only if not nil: `if source, do: base_opts ++ [source: source], else: base_opts`
+  - Merge with user opts: `keyword_list = base_opts ++ opts`
+  - Return spec: `{TheoryCraftTA.{Type}.{INDICATOR}, unquote(keyword_list)}`
+- Add tests in `test/theory_craft_ta/ta_test.exs`:
+  - Test with accessor syntax: `TA.{indicator}(eurusd[:close], period, name: "{indicator}14")`
+  - Test without accessor: `TA.{indicator}("eurusd", period, name: "{indicator}14")`
+  - Test with additional options (e.g., `bar_name`)
+- Format: `mix format lib/theory_craft_ta/ta.ex test/theory_craft_ta/ta_test.exs`
+
 ## Phase 9: Benchmarks
 
 - Create `benchmarks/{indicator}_benchmark.exs`
