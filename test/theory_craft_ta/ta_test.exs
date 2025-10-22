@@ -1,7 +1,7 @@
-defmodule TA.Test do
+defmodule TheoryCraftTA.TATest do
   use ExUnit.Case, async: true
 
-  require TA
+  require TheoryCraftTA.TA, as: TA
 
   describe "sma/3" do
     test "with accessor syntax includes source" do

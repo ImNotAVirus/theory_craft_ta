@@ -1,4 +1,4 @@
-defmodule TheoryCraftTA.SMATest do
+defmodule TheoryCraftTA.Overlap.SMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 

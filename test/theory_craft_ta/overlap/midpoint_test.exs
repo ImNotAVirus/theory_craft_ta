@@ -1,4 +1,4 @@
-defmodule TheoryCraftTA.MIDPOINTTest do
+defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 

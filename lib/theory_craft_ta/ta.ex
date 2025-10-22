@@ -1,4 +1,4 @@
-defmodule TA do
+defmodule TheoryCraftTA.TA do
   @moduledoc """
   Syntactic sugar for TheoryCraftTA indicators in MarketSimulator.
 
