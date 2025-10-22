@@ -83,6 +83,31 @@ mix rust.clippy
 set TMPDIR=D:\temp
 ```
 
+**CRITICAL - Windows Command Execution**:
+- **NEVER** use `cmd /c` when running commands on Windows
+- **ALWAYS** use `.tools/run_ci.cmd &&` prefix for mix commands that need environment setup
+- **ALWAYS** use forward slashes `/` in paths
+- Examples:
+  - ❌ BAD: `cmd /c ".tools\run_ci.cmd" && mix test`
+  - ✅ GOOD: `.tools/run_ci.cmd && mix test`
+  - ❌ BAD: `cmd /c .tools\run_ci.cmd && mix compile`
+  - ✅ GOOD: `.tools/run_ci.cmd && mix compile --force`
+
+**CRITICAL - Cargo Clean Policy**:
+- **NEVER** run `cargo clean` during normal development
+- `cargo clean` should ONLY be used when explicitly troubleshooting compilation issues
+- Running cargo clean unnecessarily slows down development by forcing full recompilation (4+ minutes)
+- Cargo's incremental compilation is very reliable - trust it
+- Examples:
+  - ❌ BAD: `cargo clean --manifest-path=native/theory_craft_ta/Cargo.toml && mix compile`
+  - ✅ GOOD: `mix compile` (cargo will incrementally rebuild only what changed)
+  - ❌ BAD: `cargo clean && .tools/run_ci.cmd`
+  - ✅ GOOD: `.tools/run_ci.cmd` (let cargo handle incremental builds)
+- Only use cargo clean when:
+  - User explicitly requests it
+  - Encountering unexplainable Rust compilation errors
+  - Switching between major Rust/dependency versions
+
 ## Architecture
 
 ### Relationship to TheoryCraft
@@ -98,7 +123,7 @@ Technical analysis indicators fit into TheoryCraft's data flow:
 **Data Source** → **DataFeed** → **MarketEvent Stream** → **TA Processors** → **Strategy/Output**
 
 Each TA indicator is implemented as a `Processor` that:
-1. Receives `MarketEvent` structs containing `Tick` or `Candle` data
+1. Receives `MarketEvent` structs containing `Tick` or `Bar` data
 2. Calculates indicator values (e.g., SMA, RSI, MACD)
 3. Enriches the `MarketEvent` with calculated indicator values
 4. Passes the enriched event downstream
@@ -820,8 +845,8 @@ All indicator functions support three input types:
 - Example workflow:
   ```bash
   # After modifying Elixir files
-  mix format lib/theory_craft/processors/tick_to_candle_processor.ex
-  mix format test/theory_craft/processors/tick_to_candle_processor_test.exs
+  mix format lib/theory_craft/processors/tick_to_bar_processor.ex
+  mix format test/theory_craft/processors/tick_to_bar_processor_test.exs
 
   # Or format all Elixir files in the project
   mix format

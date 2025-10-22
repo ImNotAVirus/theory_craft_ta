@@ -16,6 +16,8 @@ Test with Python ta-lib to get reference values for **unit tests (edge cases)**:
 - Empty array
 - Insufficient data (data length < period)
 - Extended data (large datasets)
+- **NaN at beginning** (warmup scenario): `[nan, nan, nan, 4.0, 5.0, 6.0, ...]`
+- **NaN in middle** (invalid data scenario): `[1.0, 2.0, 3.0, nan, 5.0, 6.0, ...]`
 
 **Record all results** for Elixir unit tests (edge case verification).
 

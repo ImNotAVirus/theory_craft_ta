@@ -16,9 +16,22 @@ defmodule TheoryCraftTA.Overlap.EMA do
 
   """
 
+  alias __MODULE__
+  alias TheoryCraft.MarketEvent
   alias TheoryCraftTA.{Native, Helpers}
 
-  @type t :: reference()
+  @behaviour TheoryCraft.Indicator
+
+  @type t :: %__MODULE__{
+          period: pos_integer(),
+          source: atom(),
+          data_name: String.t(),
+          output_name: String.t(),
+          bar_name: String.t() | nil,
+          state: reference()
+        }
+
+  defstruct [:period, :source, :data_name, :output_name, :bar_name, :state]
 
   ## Public API
 
@@ -60,61 +73,101 @@ defmodule TheoryCraftTA.Overlap.EMA do
 
   ## Parameters
 
-    - `period` - The EMA period (must be >= 2)
+  - `opts` - Keyword list with:
+    - `:period` (required) - The EMA period (must be >= 2)
+    - `:data` (required) - The name of the data stream to read from
+    - `:name` (required) - The output name for the indicator
+    - `:source` (optional) - The field to extract from bar (default: `:close`).
+      Only used if the data is a bar/struct. If the data is a float/nil, this is ignored.
+    - `:bar_name` (optional) - The name of the bar stream to extract `new_bar?` from (default: nil).
+      If nil, uses `:data` name. If specified, will raise if bar not found.
 
   ## Returns
 
-    - `{:ok, state}` - Initialized state
-    - `{:error, message}` - If period is invalid
+  - `{:ok, state}` - Initialized state
+  - `{:error, message}` - If period is invalid
 
   ## Examples
 
-      iex> {:ok, _state} = TheoryCraftTA.Overlap.EMA.init(14)
+      iex> {:ok, _state} = TheoryCraftTA.Overlap.EMA.init(period: 14, data: "eurusd", name: "ema14", source: :close)
 
   """
-  @spec init(pos_integer()) :: {:ok, t()} | {:error, String.t()}
-  def init(period) when is_integer(period) do
-    Native.overlap_ema_state_init(period)
-  end
+  @impl true
+  @spec init(Keyword.t()) :: {:ok, t()}
+  def init(opts) when is_list(opts) do
+    period = Keyword.fetch!(opts, :period)
+    source = Keyword.get(opts, :source, :close)
+    data_name = Keyword.fetch!(opts, :data)
+    output_name = Keyword.fetch!(opts, :name)
+    bar_name = Keyword.get(opts, :bar_name, nil)
 
-  @doc """
-  Calculates the next EMA value in streaming mode.
+    case Native.overlap_ema_state_init(period) do
+      {:ok, native_state} ->
+        state = %EMA{
+          period: period,
+          source: source,
+          data_name: data_name,
+          output_name: output_name,
+          bar_name: bar_name,
+          state: native_state
+        }
 
-  ## Parameters
-
-    - `value` - New price value
-    - `is_new_bar` - true for new bar (APPEND), false for same bar update (UPDATE)
-    - `state` - Current EMA state (from init or previous next call)
-
-  ## Returns
-
-    - `{:ok, ema_value, new_state}` where ema_value is nil during warmup
-    - `{:error, message}` on error
-
-  ## Behavior
-
-  - **UPDATE mode** (`is_new_bar = false`): Updates last value in buffer, recalculates EMA
-  - **APPEND mode** (`is_new_bar = true`): Adds new value, removes oldest if buffer full
-
-  ## Examples
-
-      iex> {:ok, state} = TheoryCraftTA.Overlap.EMA.init(2)
-      iex> {:ok, ema, state2} = TheoryCraftTA.Overlap.EMA.next(100.0, true, state)
-      iex> ema
-      nil
-      iex> {:ok, ema, _state3} = TheoryCraftTA.Overlap.EMA.next(110.0, true, state2)
-      iex> ema
-      105.0
-
-  """
-  @spec next(float(), boolean(), t()) :: {:ok, float() | nil, t()} | {:error, String.t()}
-  def next(value, is_new_bar, state) when is_float(value) and is_boolean(is_new_bar) do
-    case Native.overlap_ema_state_next(state, value, is_new_bar) do
-      {:ok, {ema_value, new_state}} ->
-        {:ok, ema_value, new_state}
+        {:ok, state}
 
       {:error, _reason} = error ->
         error
     end
+  end
+
+  @doc """
+  Processes a MarketEvent and calculates the next EMA value.
+
+  ## Parameters
+
+  - `event` - The `MarketEvent` to process
+  - `state` - The indicator state (from `init/1` or previous `next/2`)
+
+  ## Returns
+
+  - `{:ok, updated_event, new_state}` - Event with EMA value added
+  - `{:error, message}` on error
+
+  ## Nil Handling
+
+  If the input value is `nil` (e.g., upstream indicator not yet ready), this function
+  returns `nil` without modifying the state. This matches ta-lib behavior for chained
+  indicators during warmup.
+
+  ## Data Types
+
+  The data extracted from `event.data[data_name]` can be:
+  - A bar/struct with fields like `:close`, `:high`, etc. - uses the `:source` field
+  - A float/nil value directly (e.g., from another indicator) - uses the value as-is
+
+  """
+  @impl true
+  @spec next(MarketEvent.t(), t()) :: {:ok, MarketEvent.t(), t()}
+  def next(%MarketEvent{data: event_data} = event, %EMA{} = state) do
+    %EMA{
+      source: source,
+      data_name: data_name,
+      output_name: output_name,
+      bar_name: bar_name,
+      state: native_state
+    } = state
+
+    value = Helpers.extract_value(event_data, data_name, source)
+
+    # Hardcoded to true for now, will be calculated later from MarketEvent
+    is_new_bar = Helpers.extract_is_new_bar(event_data, data_name, bar_name)
+
+    {:ok, {ema_value, new_native_state}} =
+      Native.overlap_ema_state_next(native_state, value, is_new_bar)
+
+    new_state = %EMA{state | state: new_native_state}
+    updated_data = Map.put(event.data, output_name, ema_value)
+    updated_event = %MarketEvent{event | data: updated_data}
+
+    {:ok, updated_event, new_state}
   end
 end

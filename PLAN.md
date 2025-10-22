@@ -254,7 +254,7 @@ end
 
 L'état permet une intégration naturelle avec TheoryCraft.Indicator.
 
-**Cas 1 : Processing Candles (bars) - is_new_bar toujours true**
+**Cas 1 : Processing Bars (bars) - is_new_bar toujours true**
 
 ```elixir
 defmodule MyIndicators.EMA do
@@ -275,8 +275,8 @@ defmodule MyIndicators.EMA do
   end
 
   @impl true
-  def next(%MarketEvent{data: %Candle{close: close}} = event, state) do
-    # Chaque Candle = nouveau bar → is_new_bar = true
+  def next(%MarketEvent{data: %Bar{close: close}} = event, state) do
+    # Chaque Bar = nouveau bar → is_new_bar = true
     {:ok, ema_value, new_ema_state} = @state_module.next(state.ema_state, close, true)
     updated_event = put_in(event.data[state.output_name], ema_value)
     {:ok, updated_event, %{state | ema_state: new_ema_state}}
@@ -343,7 +343,7 @@ Structure:
 
 ### Phase 7: Vérification
 
-1. **Tests**: `.tools/setup_env.cmd`
+1. **Tests**: `.tools/run_ci.cmd`
    - 0 failures
    - Compilation Rust sans warnings
 

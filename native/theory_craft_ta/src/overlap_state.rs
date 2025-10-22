@@ -1,4 +1,4 @@
-use rustler::{Encoder, Env, NifResult, ResourceArc, Term};
+use rustler::ResourceArc;
 
 /// State for EMA calculation
 #[derive(Clone)]
@@ -74,9 +74,9 @@ pub struct T3State {
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_ema_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_ema_state_init(period: i32) -> Result<ResourceArc<EMAState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for EMA");
+        return Err("Invalid period: must be >= 2 for EMA".to_string());
     }
 
     let k = 2.0 / (period as f64 + 1.0);
@@ -90,18 +90,24 @@ pub fn overlap_ema_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_ema_state_next(
-    env: Env,
     state_arc: ResourceArc<EMAState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<EMAState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     let new_lookback = if is_new_bar {
         state.lookback_count + 1
@@ -138,8 +144,8 @@ pub fn overlap_ema_state_next(
             buffer: new_buffer,
         };
         let new_resource = ResourceArc::new(new_state);
-        let result = (rustler::types::atom::nil(), new_resource);
-        return ok!(env, result);
+        let result = (None, new_resource);
+        return Ok(result);
     }
 
     // Calculate new EMA
@@ -181,15 +187,15 @@ pub fn overlap_ema_state_next(
     };
 
     let new_resource = ResourceArc::new(new_state);
-    let result = (new_ema, new_resource);
-    ok!(env, result)
+
+    Ok((Some(new_ema), new_resource))
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_sma_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_sma_state_init(period: i32) -> Result<ResourceArc<SMAState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for SMA");
+        return Err("Invalid period: must be >= 2 for SMA".to_string());
     }
 
     let state = SMAState {
@@ -199,18 +205,24 @@ pub fn overlap_sma_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_sma_state_next(
-    env: Env,
     state_arc: ResourceArc<SMAState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<SMAState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     let mut new_buffer = state.buffer.clone();
     let new_lookback = if is_new_bar {
@@ -244,8 +256,8 @@ pub fn overlap_sma_state_next(
             lookback_count: new_lookback,
         };
         let new_resource = ResourceArc::new(new_state);
-        let result = (rustler::types::atom::nil(), new_resource);
-        return ok!(env, result);
+        let result = (None, new_resource);
+        return Ok(result);
     }
 
     // Calculate SMA
@@ -259,15 +271,15 @@ pub fn overlap_sma_state_next(
     };
 
     let new_resource = ResourceArc::new(new_state);
-    let result = (sma, new_resource);
-    ok!(env, result)
+
+    Ok((Some(sma), new_resource))
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_wma_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_wma_state_init(period: i32) -> Result<ResourceArc<WMAState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for WMA");
+        return Err("Invalid period: must be >= 2 for WMA".to_string());
     }
 
     let state = WMAState {
@@ -277,18 +289,24 @@ pub fn overlap_wma_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_wma_state_next(
-    env: Env,
     state_arc: ResourceArc<WMAState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<WMAState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     let mut new_buffer = state.buffer.clone();
     let new_lookback = if is_new_bar {
@@ -322,8 +340,8 @@ pub fn overlap_wma_state_next(
             lookback_count: new_lookback,
         };
         let new_resource = ResourceArc::new(new_state);
-        let result = (rustler::types::atom::nil(), new_resource);
-        return ok!(env, result);
+        let result = (None, new_resource);
+        return Ok(result);
     }
 
     // Calculate WMA
@@ -346,15 +364,15 @@ pub fn overlap_wma_state_next(
     };
 
     let new_resource = ResourceArc::new(new_state);
-    let result = (wma, new_resource);
-    ok!(env, result)
+
+    Ok((Some(wma), new_resource))
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_dema_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_dema_state_init(period: i32) -> Result<ResourceArc<DEMAState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for DEMA");
+        return Err("Invalid period: must be >= 2 for DEMA".to_string());
     }
 
     let k = 2.0 / (period as f64 + 1.0);
@@ -384,18 +402,24 @@ pub fn overlap_dema_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_dema_state_next(
-    env: Env,
     state_arc: ResourceArc<DEMAState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<DEMAState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     // Update lookback count
     let new_lookback = if is_new_bar {
@@ -544,21 +568,18 @@ pub fn overlap_dema_state_next(
     match (ema1_value, ema2_value) {
         (Some(e1), Some(e2)) => {
             let dema = 2.0 * e1 - e2;
-            let result = (dema, new_resource);
-            ok!(env, result)
+
+            Ok((Some(dema), new_resource))
         }
-        _ => {
-            let result = (rustler::types::atom::nil(), new_resource);
-            ok!(env, result)
-        }
+        _ => Ok((None, new_resource)),
     }
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_tema_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_tema_state_init(period: i32) -> Result<ResourceArc<TEMAState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for TEMA");
+        return Err("Invalid period: must be >= 2 for TEMA".to_string());
     }
 
     let k = 2.0 / (period as f64 + 1.0);
@@ -598,18 +619,24 @@ pub fn overlap_tema_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_tema_state_next(
-    env: Env,
     state_arc: ResourceArc<TEMAState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<TEMAState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     // Update lookback count
     let new_lookback = if is_new_bar {
@@ -826,21 +853,18 @@ pub fn overlap_tema_state_next(
     match (ema1_value, ema2_value, ema3_value) {
         (Some(e1), Some(e2), Some(e3)) => {
             let tema = 3.0 * e1 - 3.0 * e2 + e3;
-            let result = (tema, new_resource);
-            ok!(env, result)
+
+            Ok((Some(tema), new_resource))
         }
-        _ => {
-            let result = (rustler::types::atom::nil(), new_resource);
-            ok!(env, result)
-        }
+        _ => Ok((None, new_resource)),
     }
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_trima_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_trima_state_init(period: i32) -> Result<ResourceArc<TRIMAState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for TRIMA");
+        return Err("Invalid period: must be >= 2 for TRIMA".to_string());
     }
 
     // Calculate periods for double smoothing
@@ -867,18 +891,24 @@ pub fn overlap_trima_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_trima_state_next(
-    env: Env,
     state_arc: ResourceArc<TRIMAState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<TRIMAState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     let new_lookback = if is_new_bar {
         state.lookback_count + 1
@@ -947,22 +977,16 @@ pub fn overlap_trima_state_next(
     let new_resource = ResourceArc::new(new_state);
 
     match trima {
-        Some(value) => {
-            let result = (value, new_resource);
-            ok!(env, result)
-        }
-        None => {
-            let result = (rustler::types::atom::nil(), new_resource);
-            ok!(env, result)
-        }
+        Some(value) => Ok((Some(value), new_resource)),
+        None => Ok((None, new_resource)),
     }
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_midpoint_state_init(env: Env, period: i32) -> NifResult<Term> {
+pub fn overlap_midpoint_state_init(period: i32) -> Result<ResourceArc<MIDPOINTState>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for MIDPOINT");
+        return Err("Invalid period: must be >= 2 for MIDPOINT".to_string());
     }
 
     let state = MIDPOINTState {
@@ -972,18 +996,24 @@ pub fn overlap_midpoint_state_init(env: Env, period: i32) -> NifResult<Term> {
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_midpoint_state_next(
-    env: Env,
     state_arc: ResourceArc<MIDPOINTState>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<MIDPOINTState>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     let mut new_buffer = state.buffer.clone();
     let new_lookback = if is_new_bar {
@@ -1017,8 +1047,8 @@ pub fn overlap_midpoint_state_next(
             lookback_count: new_lookback,
         };
         let new_resource = ResourceArc::new(new_state);
-        let result = (rustler::types::atom::nil(), new_resource);
-        return ok!(env, result);
+        let result = (None, new_resource);
+        return Ok(result);
     }
 
     // Calculate MIDPOINT = (MAX + MIN) / 2
@@ -1033,15 +1063,15 @@ pub fn overlap_midpoint_state_next(
     };
 
     let new_resource = ResourceArc::new(new_state);
-    let result = (midpoint, new_resource);
-    ok!(env, result)
+
+    Ok((Some(midpoint), new_resource))
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
-pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<Term> {
+pub fn overlap_t3_state_init(period: i32, vfactor: f64) -> Result<ResourceArc<T3State>, String> {
     if period < 2 {
-        return error!(env, "Invalid period: must be >= 2 for T3");
+        return Err("Invalid period: must be >= 2 for T3".to_string());
     }
 
     let k = 2.0 / (period as f64 + 1.0);
@@ -1113,18 +1143,24 @@ pub fn overlap_t3_state_init(env: Env, period: i32, vfactor: f64) -> NifResult<T
     };
 
     let resource = ResourceArc::new(state);
-    ok!(env, resource)
+    Ok(resource)
 }
 
 #[cfg(has_talib)]
 #[rustler::nif]
 pub fn overlap_t3_state_next(
-    env: Env,
     state_arc: ResourceArc<T3State>,
-    value: f64,
+    value: Option<f64>,
     is_new_bar: bool,
-) -> NifResult<Term> {
+) -> Result<(Option<f64>, ResourceArc<T3State>), String> {
     let state = &*state_arc;
+
+    // Handle nil input: return nil without modifying state
+    if value.is_none() {
+        return Ok((None, state_arc));
+    }
+
+    let value = value.unwrap();
 
     // Update lookback count
     let new_lookback = if is_new_bar {
@@ -1262,197 +1298,170 @@ pub fn overlap_t3_state_next(
                 + 3.0 * state.vfactor * state.vfactor;
 
             let t3 = c1 * e6 + c2 * e5 + c3 * e4 + c4 * e3;
-            let result = (t3, new_resource);
-            ok!(env, result)
+
+            Ok((Some(t3), new_resource))
         }
-        _ => {
-            let result = (rustler::types::atom::nil(), new_resource);
-            ok!(env, result)
-        }
+        _ => Ok((None, new_resource)),
     }
 }
 
 // Stub implementations when ta-lib is not available
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_ema_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_ema_state_init(period: i32) -> Result<ResourceArc<EMAState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_ema_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<EMAState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_sma_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_sma_state_init(period: i32) -> Result<ResourceArc<SMAState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_sma_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<SMAState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_wma_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_wma_state_init(period: i32) -> Result<ResourceArc<WMAState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_wma_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<WMAState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_dema_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_dema_state_init(period: i32) -> Result<ResourceArc<DEMAState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_dema_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<DEMAState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_tema_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_tema_state_init(period: i32) -> Result<ResourceArc<TEMAState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_tema_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<TEMAState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_midpoint_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_midpoint_state_init(period: i32) -> Result<ResourceArc<MIDPOINTState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_midpoint_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<MIDPOINTState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_trima_state_init(env: Env, _period: i32) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_trima_state_init(period: i32) -> Result<ResourceArc<TRIMAState>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_trima_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<TRIMAState>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
-pub fn overlap_t3_state_init(env: Env, _period: i32, _vfactor: f64) -> NifResult<Term> {
-    error!(
-        env,
+pub fn overlap_t3_state_init(period: i32, vfactor: f64) -> Result<ResourceArc<T3State>, String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
 
 #[cfg(not(has_talib))]
 #[rustler::nif]
 pub fn overlap_t3_state_next(
-    env: Env,
     _state: Term,
-    _value: f64,
+    _value: Option<f64>,
     _is_new_bar: bool,
-) -> NifResult<Term> {
-    error!(
-        env,
+) -> Result<(Option<f64>, ResourceArc<T3State>), String> {
+    Err(
         "TA-Lib not available. Please build ta-lib using tools/build_talib.cmd or use the Elixir backend."
-    )
+    .to_string())
 }
