@@ -40,11 +40,10 @@ defmodule TheoryCraftTA.Overlap.T3 do
           vfactor: float(),
           source: atom(),
           data_name: String.t(),
-          output_name: String.t(),
           state: reference()
         }
 
-  defstruct [:period, :vfactor, :source, :data_name, :output_name, :state]
+  defstruct [:period, :vfactor, :source, :data_name, :state]
 
   ## Public API
 
@@ -116,7 +115,6 @@ defmodule TheoryCraftTA.Overlap.T3 do
     vfactor = Keyword.fetch!(opts, :vfactor)
     source = Keyword.get(opts, :source, :close)
     data_name = Keyword.fetch!(opts, :data)
-    output_name = Keyword.fetch!(opts, :name)
 
     case Native.overlap_t3_state_init(period, vfactor) do
       {:ok, native_state} ->
@@ -125,7 +123,6 @@ defmodule TheoryCraftTA.Overlap.T3 do
           vfactor: vfactor,
           source: source,
           data_name: data_name,
-          output_name: output_name,
           state: native_state
         }
 
@@ -168,7 +165,6 @@ defmodule TheoryCraftTA.Overlap.T3 do
     %T3{
       source: source,
       data_name: data_name,
-      output_name: output_name,
       state: native_state
     } = state
 
@@ -182,7 +178,7 @@ defmodule TheoryCraftTA.Overlap.T3 do
 
     indicator_value = %IndicatorValue{
       value: t3_value,
-      data_name: output_name
+      data_name: data_name
     }
 
     {:ok, indicator_value, new_state}

@@ -39,11 +39,10 @@ defmodule TheoryCraftTA.Overlap.TEMA do
           period: pos_integer(),
           source: atom(),
           data_name: String.t(),
-          output_name: String.t(),
           state: reference()
         }
 
-  defstruct [:period, :source, :data_name, :output_name, :state]
+  defstruct [:period, :source, :data_name, :state]
 
   ## Public API
 
@@ -108,7 +107,6 @@ defmodule TheoryCraftTA.Overlap.TEMA do
     period = Keyword.fetch!(opts, :period)
     source = Keyword.get(opts, :source, :close)
     data_name = Keyword.fetch!(opts, :data)
-    output_name = Keyword.fetch!(opts, :name)
 
     case Native.overlap_tema_state_init(period) do
       {:ok, native_state} ->
@@ -116,7 +114,6 @@ defmodule TheoryCraftTA.Overlap.TEMA do
           period: period,
           source: source,
           data_name: data_name,
-          output_name: output_name,
           state: native_state
         }
 
@@ -159,7 +156,6 @@ defmodule TheoryCraftTA.Overlap.TEMA do
     %TEMA{
       source: source,
       data_name: data_name,
-      output_name: output_name,
       state: native_state
     } = state
 
@@ -173,7 +169,7 @@ defmodule TheoryCraftTA.Overlap.TEMA do
 
     indicator_value = %IndicatorValue{
       value: tema_value,
-      data_name: output_name
+      data_name: data_name
     }
 
     {:ok, indicator_value, new_state}
