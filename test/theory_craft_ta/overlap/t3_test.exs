@@ -2,7 +2,7 @@ defmodule TheoryCraftTA.Overlap.T3Test do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraft.{Bar, DataSeries, TimeSeries, MarketEvent}
+  alias TheoryCraft.{Bar, DataSeries, IndicatorValue, MarketEvent, TimeSeries}
   alias TheoryCraftTA.Overlap.T3
 
   doctest TheoryCraftTA.Overlap.T3
@@ -135,20 +135,6 @@ defmodule TheoryCraftTA.Overlap.T3Test do
 
       assert msg =~ "Invalid period"
     end
-
-    test "accepts optional bar_name parameter" do
-      assert {:ok, state} =
-               T3.init(
-                 period: 14,
-                 vfactor: 0.7,
-                 data: "rsi",
-                 name: "t3_rsi",
-                 source: :close,
-                 bar_name: "eurusd_m1"
-               )
-
-      assert state.bar_name == "eurusd_m1"
-    end
   end
 
   ## Streaming API tests (next/2 with MarketEvent)
@@ -169,7 +155,7 @@ defmodule TheoryCraftTA.Overlap.T3Test do
           }
 
           {:ok, result, new_state} = T3.next(event, st)
-          {new_state, [result.data["t3"] | acc]}
+          {new_state, [result.value | acc]}
         end)
 
       results_forward = Enum.reverse(results)
@@ -204,7 +190,7 @@ defmodule TheoryCraftTA.Overlap.T3Test do
       }
 
       {:ok, result_last, state_with_last} = T3.next(event_last, final_state)
-      value_with_190 = result_last.data["t3"]
+      value_with_190 = result_last.value
 
       # Now UPDATE the last bar
       event_update = %MarketEvent{
@@ -212,68 +198,10 @@ defmodule TheoryCraftTA.Overlap.T3Test do
       }
 
       {:ok, result_update, _state_after_update} = T3.next(event_update, state_with_last)
-      value_with_200 = result_update.data["t3"]
+      value_with_200 = result_update.value
 
       # Values should be different (unless both nil)
       case {value_with_190, value_with_200} do
-        {nil, nil} -> :ok
-        {v1, v2} when is_float(v1) and is_float(v2) -> assert v1 != v2
-        _ -> flunk("Unexpected nil/float combination")
-      end
-    end
-
-    test "uses bar_name parameter to extract new_bar? from different source" do
-      # Calculate T3 on RSI indicator, but use eurusd_m1 for new_bar?
-      {:ok, state} =
-        T3.init(
-          period: 3,
-          vfactor: 0.7,
-          data: "rsi",
-          name: "t3_rsi",
-          source: :close,
-          bar_name: "eurusd_m1"
-        )
-
-      # Build up events
-      rsi_values = [50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0]
-
-      final_state =
-        Enum.reduce(Enum.with_index(rsi_values, 1), state, fn {rsi, idx}, st ->
-          event = %MarketEvent{
-            data: %{
-              "eurusd_m1" => %Bar{close: 1.20 + idx * 0.01, new_bar?: true},
-              "rsi" => rsi
-            }
-          }
-
-          {:ok, _result, new_state} = T3.next(event, st)
-          new_state
-        end)
-
-      # APPEND event
-      event_append = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.30, new_bar?: true},
-          "rsi" => 95.0
-        }
-      }
-
-      {:ok, result_append, state_after_append} = T3.next(event_append, final_state)
-      value_append = result_append.data["t3_rsi"]
-
-      # UPDATE event
-      event_update = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.30, new_bar?: false},
-          "rsi" => 98.0
-        }
-      }
-
-      {:ok, result_update, _state_after_update} = T3.next(event_update, state_after_append)
-      value_update = result_update.data["t3_rsi"]
-
-      # Values should be different (unless both nil)
-      case {value_append, value_update} do
         {nil, nil} -> :ok
         {v1, v2} when is_float(v1) and is_float(v2) -> assert v1 != v2
         _ -> flunk("Unexpected nil/float combination")
@@ -287,30 +215,29 @@ defmodule TheoryCraftTA.Overlap.T3Test do
           vfactor: 0.7,
           data: "indicator",
           name: "t3",
-          source: :close,
-          bar_name: "eurusd_m1"
+          source: :close
         )
 
       # Start with nils
       event1 = %MarketEvent{
         data: %{
-          "indicator" => nil,
+          "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}
         }
       }
 
       {:ok, result1, state1} = T3.next(event1, state)
-      assert result1.data["t3"] == nil
+      assert result1.value == nil
 
       event2 = %MarketEvent{
         data: %{
-          "indicator" => nil,
+          "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.24, new_bar?: true}
         }
       }
 
       {:ok, result2, state2} = T3.next(event2, state1)
-      assert result2.data["t3"] == nil
+      assert result2.value == nil
 
       # Continue with valid values
       values = [100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0, 170.0]
@@ -318,14 +245,14 @@ defmodule TheoryCraftTA.Overlap.T3Test do
       Enum.reduce(Enum.with_index(values, 3), state2, fn {val, idx}, st ->
         event = %MarketEvent{
           data: %{
-            "indicator" => val,
+            "indicator" => %IndicatorValue{value: val, data_name: "eurusd_m1"},
             "eurusd_m1" => %Bar{close: 1.20 + idx * 0.01, new_bar?: true}
           }
         }
 
         {:ok, result, new_state} = T3.next(event, st)
         # T3 output can still be nil during warmup
-        assert result.data["t3"] == nil or is_float(result.data["t3"])
+        assert result.value == nil or is_float(result.value)
         new_state
       end)
     end
@@ -355,7 +282,7 @@ defmodule TheoryCraftTA.Overlap.T3Test do
           }
 
           {:ok, result, new_state} = T3.next(event, state)
-          t3_value = result.data["t3"]
+          t3_value = result.value
 
           case {t3_value, expected_value} do
             {nil, nil} -> :ok
@@ -389,7 +316,7 @@ defmodule TheoryCraftTA.Overlap.T3Test do
             }
 
             {:ok, result, new_state} = T3.next(event, st)
-            {new_state, [result.data["t3"] | results]}
+            {new_state, [result.value | results]}
           end)
 
         # Apply multiple UPDATE operations - each replaces the last bar
@@ -399,7 +326,7 @@ defmodule TheoryCraftTA.Overlap.T3Test do
           }
 
           {:ok, result, new_state} = T3.next(event, state)
-          state_t3 = result.data["t3"]
+          state_t3 = result.value
 
           # Calculate equivalent batch: all previous data + update_value replacing last
           updated_data = List.replace_at(current_data, -1, update_value)

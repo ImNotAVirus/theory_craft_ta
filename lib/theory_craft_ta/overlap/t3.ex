@@ -17,24 +17,20 @@ defmodule TheoryCraftTA.Overlap.T3 do
   ## Usage with TheoryCraft
 
   This module implements the `TheoryCraft.Indicator` behaviour and can be used
-  with `TheoryCraft.Processors.IndicatorProcessor`:
+  with `TheoryCraft.MarketSimulator`:
 
-      simulator = %MarketSimulator{}
-      |> MarketSimulator.add_data(bar_stream, name: "eurusd_m5")
-      |> MarketSimulator.add_indicator(
-        TheoryCraftTA.Overlap.T3,
-        period: 20,
-        vfactor: 0.7,
-        data: "eurusd_m5",
-        name: "t3_20",
-        source: :close
-      )
-      |> MarketSimulator.stream()
+      require TheoryCraftTA.TA, as: TA
+
+      simulator =
+        %MarketSimulator{}
+        |> MarketSimulator.add_data(bar_stream, name: "eurusd_m5")
+        |> MarketSimulator.add_indicator(TA.t3(eurusd_m5[:close], 5, 0.7, name: "t3"))
+        |> MarketSimulator.stream()
 
   """
 
   alias __MODULE__
-  alias TheoryCraft.MarketEvent
+  alias TheoryCraft.{IndicatorValue, MarketEvent}
   alias TheoryCraftTA.{Native, Helpers}
 
   @behaviour TheoryCraft.Indicator
@@ -45,11 +41,10 @@ defmodule TheoryCraftTA.Overlap.T3 do
           source: atom(),
           data_name: String.t(),
           output_name: String.t(),
-          bar_name: String.t() | nil,
           state: reference()
         }
 
-  defstruct [:period, :vfactor, :source, :data_name, :output_name, :bar_name, :state]
+  defstruct [:period, :vfactor, :source, :data_name, :output_name, :state]
 
   ## Public API
 
@@ -103,8 +98,6 @@ defmodule TheoryCraftTA.Overlap.T3 do
     - `:name` (required) - The output name for the indicator
     - `:source` (optional) - The field to extract from bar (default: `:close`).
       Only used if the data is a bar/struct. If the data is a float/nil, this is ignored.
-    - `:bar_name` (optional) - The name of the bar stream to extract `new_bar?` from (default: nil).
-      If nil, uses `:data` name. If specified, will raise if bar not found.
 
   ## Returns
 
@@ -124,7 +117,6 @@ defmodule TheoryCraftTA.Overlap.T3 do
     source = Keyword.get(opts, :source, :close)
     data_name = Keyword.fetch!(opts, :data)
     output_name = Keyword.fetch!(opts, :name)
-    bar_name = Keyword.get(opts, :bar_name, nil)
 
     case Native.overlap_t3_state_init(period, vfactor) do
       {:ok, native_state} ->
@@ -134,7 +126,6 @@ defmodule TheoryCraftTA.Overlap.T3 do
           source: source,
           data_name: data_name,
           output_name: output_name,
-          bar_name: bar_name,
           state: native_state
         }
 
@@ -155,7 +146,7 @@ defmodule TheoryCraftTA.Overlap.T3 do
 
   ## Returns
 
-  - `{:ok, updated_event, new_state}` - Event with T3 value added
+  - `{:ok, indicator_value, new_state}` - IndicatorValue with T3 calculation
   - `{:error, message}` on error
 
   ## Nil Handling
@@ -172,28 +163,28 @@ defmodule TheoryCraftTA.Overlap.T3 do
 
   """
   @impl true
-  @spec next(MarketEvent.t(), t()) :: {:ok, MarketEvent.t(), t()}
-  def next(%MarketEvent{data: event_data} = event, %T3{} = state) do
+  @spec next(MarketEvent.t(), t()) :: {:ok, IndicatorValue.t(), t()}
+  def next(%MarketEvent{} = event, %T3{} = state) do
     %T3{
       source: source,
       data_name: data_name,
       output_name: output_name,
-      bar_name: bar_name,
       state: native_state
     } = state
 
-    value = Helpers.extract_value(event_data, data_name, source)
-
-    # Hardcoded to true for now, will be calculated later from MarketEvent
-    is_new_bar = Helpers.extract_is_new_bar(event_data, data_name, bar_name)
+    value = MarketEvent.extract_value(event, data_name, source)
+    is_new_bar = MarketEvent.new_bar?(event, data_name)
 
     {:ok, {t3_value, new_native_state}} =
       Native.overlap_t3_state_next(native_state, value, is_new_bar)
 
     new_state = %T3{state | state: new_native_state}
-    updated_data = Map.put(event.data, output_name, t3_value)
-    updated_event = %MarketEvent{event | data: updated_data}
 
-    {:ok, updated_event, new_state}
+    indicator_value = %IndicatorValue{
+      value: t3_value,
+      data_name: output_name
+    }
+
+    {:ok, indicator_value, new_state}
   end
 end

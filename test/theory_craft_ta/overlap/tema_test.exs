@@ -2,7 +2,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraft.{Bar, DataSeries, TimeSeries, MarketEvent}
+  alias TheoryCraft.{Bar, DataSeries, IndicatorValue, MarketEvent, TimeSeries}
   alias TheoryCraftTA.Overlap.TEMA
 
   doctest TheoryCraftTA.Overlap.TEMA
@@ -98,19 +98,6 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
 
       assert msg =~ "Invalid period"
     end
-
-    test "accepts optional bar_name parameter" do
-      assert {:ok, state} =
-               TEMA.init(
-                 period: 14,
-                 data: "rsi",
-                 name: "tema_rsi",
-                 source: :close,
-                 bar_name: "eurusd_m1"
-               )
-
-      assert state.bar_name == "eurusd_m1"
-    end
   end
 
   ## Streaming API tests (next/2 with MarketEvent)
@@ -125,7 +112,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
       }
 
       {:ok, result1, state1} = TEMA.next(event1, state)
-      assert result1.data["tema2"] == nil
+      assert result1.value == nil
 
       # Second bar
       event2 = %MarketEvent{
@@ -133,7 +120,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
       }
 
       {:ok, result2, state2} = TEMA.next(event2, state1)
-      assert result2.data["tema2"] == nil
+      assert result2.value == nil
 
       # Third bar
       event3 = %MarketEvent{
@@ -141,7 +128,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
       }
 
       {:ok, result3, state3} = TEMA.next(event3, state2)
-      assert result3.data["tema2"] == nil
+      assert result3.value == nil
 
       # Fourth bar - should calculate
       event4 = %MarketEvent{
@@ -149,7 +136,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
       }
 
       {:ok, result4, state4} = TEMA.next(event4, state3)
-      assert result4.data["tema2"] == 130.0
+      assert result4.value == 130.0
 
       # Fifth bar
       event5 = %MarketEvent{
@@ -157,7 +144,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
       }
 
       {:ok, result5, _state5} = TEMA.next(event5, state4)
-      assert result5.data["tema2"] == 140.0
+      assert result5.value == 140.0
     end
 
     test "processes bars correctly in UPDATE mode" do
@@ -184,7 +171,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
           final_state
         )
 
-      value_before = result_before.data["tema2"]
+      value_before = result_before.value
 
       # Now update the last bar
       update_event = %MarketEvent{
@@ -194,56 +181,11 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
       {:ok, result, _state} = TEMA.next(update_event, state_before)
       # TEMA should be recalculated with updated last value
       # Value should be different (unless both nil)
-      case {value_before, result.data["tema2"]} do
+      case {value_before, result.value} do
         {nil, nil} -> :ok
         {v1, v2} when is_float(v1) and is_float(v2) -> assert v1 != v2
         _ -> flunk("Unexpected nil/float combination")
       end
-    end
-
-    test "uses bar_name parameter to extract new_bar? from different source" do
-      # Calculate TEMA on RSI indicator, but use eurusd_m1 for new_bar?
-      {:ok, state} =
-        TEMA.init(
-          period: 2,
-          data: "rsi",
-          name: "tema_rsi",
-          source: :close,
-          bar_name: "eurusd_m1"
-        )
-
-      # Build up events
-      events = [
-        %MarketEvent{
-          data: %{"eurusd_m1" => %Bar{close: 1.23, new_bar?: true}, "rsi" => 50.0}
-        },
-        %MarketEvent{
-          data: %{"eurusd_m1" => %Bar{close: 1.24, new_bar?: true}, "rsi" => 60.0}
-        },
-        %MarketEvent{
-          data: %{"eurusd_m1" => %Bar{close: 1.25, new_bar?: true}, "rsi" => 70.0}
-        },
-        %MarketEvent{
-          data: %{"eurusd_m1" => %Bar{close: 1.26, new_bar?: true}, "rsi" => 80.0}
-        }
-      ]
-
-      final_state =
-        Enum.reduce(events, state, fn event, st ->
-          {:ok, _result, new_state} = TEMA.next(event, st)
-          new_state
-        end)
-
-      # UPDATE event
-      update_event = %MarketEvent{
-        data: %{"eurusd_m1" => %Bar{close: 1.26, new_bar?: false}, "rsi" => 85.0}
-      }
-
-      {:ok, result, _state} = TEMA.next(update_event, final_state)
-      # TEMA should be recalculated with updated RSI value
-      # Just verify we got a value (actual value depends on complex EMA calculations)
-      assert result.data["tema_rsi"] != nil
-      assert is_float(result.data["tema_rsi"])
     end
 
     test "handles nil values from upstream indicators" do
@@ -252,39 +194,50 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
           period: 2,
           data: "indicator",
           name: "tema2",
-          source: :close,
-          bar_name: "eurusd_m1"
+          source: :close
         )
 
       # First three values with nils
       events_with_nils = [
         %MarketEvent{
-          data: %{"indicator" => nil, "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}}
+          data: %{
+            "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
+            "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}
+          }
         },
         %MarketEvent{
-          data: %{"indicator" => nil, "eurusd_m1" => %Bar{close: 1.24, new_bar?: true}}
+          data: %{
+            "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
+            "eurusd_m1" => %Bar{close: 1.24, new_bar?: true}
+          }
         },
         %MarketEvent{
-          data: %{"indicator" => 100.0, "eurusd_m1" => %Bar{close: 1.25, new_bar?: true}}
+          data: %{
+            "indicator" => %IndicatorValue{value: 100.0, data_name: "eurusd_m1"},
+            "eurusd_m1" => %Bar{close: 1.25, new_bar?: true}
+          }
         }
       ]
 
       state_after_nils =
         Enum.reduce(events_with_nils, state, fn event, st ->
           {:ok, result, new_state} = TEMA.next(event, st)
-          assert result.data["tema2"] == nil
+          assert result.value == nil
           new_state
         end)
 
       # Continue with valid values
       event4 = %MarketEvent{
-        data: %{"indicator" => 110.0, "eurusd_m1" => %Bar{close: 1.26, new_bar?: true}}
+        data: %{
+          "indicator" => %IndicatorValue{value: 110.0, data_name: "eurusd_m1"},
+          "eurusd_m1" => %Bar{close: 1.26, new_bar?: true}
+        }
       }
 
       {:ok, result4, state4} = TEMA.next(event4, state_after_nils)
       # TEMA with period 2 needs 4 values total (3*period - 2 = 4)
       # But might still be nil if lookback not satisfied
-      assert result4.data["tema2"] == nil or is_float(result4.data["tema2"])
+      assert result4.value == nil or is_float(result4.value)
 
       # Continue adding values until we get output
       remaining_values = [120.0, 130.0, 140.0, 150.0, 160.0]
@@ -293,7 +246,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
         Enum.reduce(remaining_values, state4, fn val, st ->
           event = %MarketEvent{
             data: %{
-              "indicator" => val,
+              "indicator" => %IndicatorValue{value: val, data_name: "eurusd_m1"},
               "eurusd_m1" => %Bar{close: 1.20 + val / 100, new_bar?: true}
             }
           }
@@ -304,12 +257,15 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
 
       # Final value should give us output
       event_final = %MarketEvent{
-        data: %{"indicator" => 170.0, "eurusd_m1" => %Bar{close: 1.27, new_bar?: true}}
+        data: %{
+          "indicator" => %IndicatorValue{value: 170.0, data_name: "eurusd_m1"},
+          "eurusd_m1" => %Bar{close: 1.27, new_bar?: true}
+        }
       }
 
       {:ok, result_final, _state_final} = TEMA.next(event_final, final_result)
-      assert result_final.data["tema2"] != nil
-      assert is_float(result_final.data["tema2"])
+      assert result_final.value != nil
+      assert is_float(result_final.value)
     end
   end
 
@@ -336,7 +292,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
           }
 
           {:ok, result, new_state} = TEMA.next(event, state)
-          tema_value = result.data["tema"]
+          tema_value = result.value
 
           case {tema_value, expected_value} do
             {nil, nil} -> :ok
@@ -368,7 +324,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
             }
 
             {:ok, result, new_state} = TEMA.next(event, st)
-            {new_state, [result.data["tema"] | results]}
+            {new_state, [result.value | results]}
           end)
 
         # Apply multiple UPDATE operations - each replaces the last bar
@@ -378,7 +334,7 @@ defmodule TheoryCraftTA.Overlap.TEMATest do
           }
 
           {:ok, result, new_state} = TEMA.next(event, state)
-          state_tema = result.data["tema"]
+          state_tema = result.value
 
           # Calculate equivalent batch: all previous data + update_value replacing last
           updated_data = List.replace_at(current_data, -1, update_value)

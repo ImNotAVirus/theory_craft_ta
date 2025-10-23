@@ -2,7 +2,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraft.{Bar, DataSeries, TimeSeries, MarketEvent}
+  alias TheoryCraft.{Bar, DataSeries, IndicatorValue, MarketEvent, TimeSeries}
   alias TheoryCraftTA.Overlap.MIDPOINT
 
   doctest TheoryCraftTA.Overlap.MIDPOINT
@@ -113,19 +113,6 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
 
       assert msg =~ "Invalid period"
     end
-
-    test "accepts optional bar_name parameter" do
-      assert {:ok, state} =
-               MIDPOINT.init(
-                 period: 14,
-                 data: "rsi",
-                 name: "midpoint_rsi",
-                 source: :close,
-                 bar_name: "eurusd_m1"
-               )
-
-      assert state.bar_name == "eurusd_m1"
-    end
   end
 
   ## Streaming API tests (next/2 with MarketEvent)
@@ -141,7 +128,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
       }
 
       {:ok, result1, state1} = MIDPOINT.next(event1, state)
-      assert result1.data["midpoint2"] == nil
+      assert result1.value == nil
 
       # Second bar - should calculate
       event2 = %MarketEvent{
@@ -150,7 +137,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
 
       {:ok, result2, state2} = MIDPOINT.next(event2, state1)
       # MIDPOINT = (min + max) / 2 = (100 + 110) / 2 = 105.0
-      assert result2.data["midpoint2"] == 105.0
+      assert result2.value == 105.0
 
       # Third bar
       event3 = %MarketEvent{
@@ -159,7 +146,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
 
       {:ok, result3, _state3} = MIDPOINT.next(event3, state2)
       # MIDPOINT = (min + max) / 2 = (110 + 120) / 2 = 115.0
-      assert result3.data["midpoint2"] == 115.0
+      assert result3.value == 115.0
     end
 
     test "processes bars correctly in UPDATE mode" do
@@ -179,7 +166,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
       }
 
       {:ok, result2, state2} = MIDPOINT.next(event2, state1)
-      assert result2.data["midpoint2"] == 105.0
+      assert result2.value == 105.0
 
       # Update second bar (UPDATE mode - new_bar? = false)
       event3 = %MarketEvent{
@@ -189,54 +176,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
       {:ok, result3, _state3} = MIDPOINT.next(event3, state2)
       # MIDPOINT should be recalculated with [100.0, 120.0] instead of [100.0, 110.0]
       # MIDPOINT = (100 + 120) / 2 = 110.0
-      assert result3.data["midpoint2"] == 110.0
-    end
-
-    test "uses bar_name parameter to extract new_bar? from different source" do
-      # Calculate MIDPOINT on RSI indicator, but use eurusd_m1 for new_bar?
-      {:ok, state} =
-        MIDPOINT.init(
-          period: 2,
-          data: "rsi",
-          name: "midpoint_rsi",
-          source: :close,
-          bar_name: "eurusd_m1"
-        )
-
-      # First event: new bar on eurusd_m1, rsi = 50.0
-      event1 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.23, new_bar?: true},
-          "rsi" => 50.0
-        }
-      }
-
-      {:ok, _result1, state1} = MIDPOINT.next(event1, state)
-
-      # Second event: still new bar, rsi = 60.0
-      event2 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.24, new_bar?: true},
-          "rsi" => 60.0
-        }
-      }
-
-      {:ok, result2, state2} = MIDPOINT.next(event2, state1)
-      # MIDPOINT = (50 + 60) / 2 = 55.0
-      assert result2.data["midpoint_rsi"] == 55.0
-
-      # Third event: UPDATE on eurusd_m1 (new_bar? = false), rsi = 65.0
-      event3 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.24, new_bar?: false},
-          "rsi" => 65.0
-        }
-      }
-
-      {:ok, result3, _state3} = MIDPOINT.next(event3, state2)
-      # MIDPOINT should be recalculated with [50.0, 65.0] instead of [50.0, 60.0]
-      # MIDPOINT = (50 + 65) / 2 = 57.5
-      assert_in_delta result3.data["midpoint_rsi"], 57.5, 0.0001
+      assert result3.value == 110.0
     end
 
     test "handles nil values from upstream indicators" do
@@ -245,43 +185,42 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
           period: 2,
           data: "indicator",
           name: "midpoint2",
-          source: :close,
-          bar_name: "eurusd_m1"
+          source: :close
         )
 
       # First value is nil (upstream not ready)
       event1 = %MarketEvent{
         data: %{
-          "indicator" => nil,
+          "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}
         }
       }
 
       {:ok, result1, state1} = MIDPOINT.next(event1, state)
-      assert result1.data["midpoint2"] == nil
+      assert result1.value == nil
 
       # Second value is valid
       event2 = %MarketEvent{
         data: %{
-          "indicator" => 100.0,
+          "indicator" => %IndicatorValue{value: 100.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.24, new_bar?: true}
         }
       }
 
       {:ok, result2, state2} = MIDPOINT.next(event2, state1)
-      assert result2.data["midpoint2"] == nil
+      assert result2.value == nil
 
       # Third value is valid - should calculate
       event3 = %MarketEvent{
         data: %{
-          "indicator" => 110.0,
+          "indicator" => %IndicatorValue{value: 110.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.25, new_bar?: true}
         }
       }
 
       {:ok, result3, _state3} = MIDPOINT.next(event3, state2)
       # MIDPOINT = (100 + 110) / 2 = 105.0
-      assert result3.data["midpoint2"] == 105.0
+      assert result3.value == 105.0
     end
   end
 
@@ -308,7 +247,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
           }
 
           {:ok, result, new_state} = MIDPOINT.next(event, state)
-          midpoint_value = result.data["midpoint"]
+          midpoint_value = result.value
 
           case {midpoint_value, expected_value} do
             {nil, nil} -> :ok
@@ -341,7 +280,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
             }
 
             {:ok, result, new_state} = MIDPOINT.next(event, st)
-            {new_state, [result.data["midpoint"] | results]}
+            {new_state, [result.value | results]}
           end)
 
         # Apply multiple UPDATE operations - each replaces the last bar
@@ -351,7 +290,7 @@ defmodule TheoryCraftTA.Overlap.MIDPOINTTest do
           }
 
           {:ok, result, new_state} = MIDPOINT.next(event, state)
-          state_midpoint = result.data["midpoint"]
+          state_midpoint = result.value
 
           # Calculate equivalent batch: all previous data + update_value replacing last
           updated_data = List.replace_at(current_data, -1, update_value)

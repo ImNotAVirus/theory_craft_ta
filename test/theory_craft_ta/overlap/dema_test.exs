@@ -2,7 +2,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraft.{Bar, DataSeries, TimeSeries, MarketEvent}
+  alias TheoryCraft.{Bar, DataSeries, IndicatorValue, MarketEvent, TimeSeries}
   alias TheoryCraftTA.Overlap.DEMA
 
   doctest TheoryCraftTA.Overlap.DEMA
@@ -105,19 +105,6 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
 
       assert msg =~ "Invalid period"
     end
-
-    test "accepts optional bar_name parameter" do
-      assert {:ok, state} =
-               DEMA.init(
-                 period: 14,
-                 data: "rsi",
-                 name: "dema_rsi",
-                 source: :close,
-                 bar_name: "eurusd_m1"
-               )
-
-      assert state.bar_name == "eurusd_m1"
-    end
   end
 
   ## Streaming API tests (next/2 with MarketEvent)
@@ -132,7 +119,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
       }
 
       {:ok, result1, state1} = DEMA.next(event1, state)
-      assert result1.data["dema2"] == nil
+      assert result1.value == nil
 
       # Second bar
       event2 = %MarketEvent{
@@ -140,7 +127,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
       }
 
       {:ok, result2, state2} = DEMA.next(event2, state1)
-      assert result2.data["dema2"] == nil
+      assert result2.value == nil
 
       # Third bar - should calculate
       event3 = %MarketEvent{
@@ -148,7 +135,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
       }
 
       {:ok, result3, state3} = DEMA.next(event3, state2)
-      assert result3.data["dema2"] == 120.0
+      assert result3.value == 120.0
 
       # Fourth bar
       event4 = %MarketEvent{
@@ -156,7 +143,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
       }
 
       {:ok, result4, _state4} = DEMA.next(event4, state3)
-      assert result4.data["dema2"] == 130.0
+      assert result4.value == 130.0
     end
 
     test "processes bars correctly in UPDATE mode" do
@@ -182,7 +169,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
       }
 
       {:ok, result3, state3} = DEMA.next(event3, state2)
-      assert result3.data["dema2"] == 120.0
+      assert result3.value == 120.0
 
       # Update third bar (UPDATE mode - new_bar? = false)
       event4 = %MarketEvent{
@@ -191,62 +178,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
 
       {:ok, result4, _state4} = DEMA.next(event4, state3)
       # DEMA should be recalculated with [100.0, 110.0, 130.0] instead of [100.0, 110.0, 120.0]
-      assert result4.data["dema2"] == 130.0
-    end
-
-    test "uses bar_name parameter to extract new_bar? from different source" do
-      # Calculate DEMA on RSI indicator, but use eurusd_m1 for new_bar?
-      {:ok, state} =
-        DEMA.init(
-          period: 2,
-          data: "rsi",
-          name: "dema_rsi",
-          source: :close,
-          bar_name: "eurusd_m1"
-        )
-
-      # First event: new bar on eurusd_m1, rsi = 50.0
-      event1 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.23, new_bar?: true},
-          "rsi" => 50.0
-        }
-      }
-
-      {:ok, _result1, state1} = DEMA.next(event1, state)
-
-      # Second event: still new bar, rsi = 60.0
-      event2 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.24, new_bar?: true},
-          "rsi" => 60.0
-        }
-      }
-
-      {:ok, _result2, state2} = DEMA.next(event2, state1)
-
-      # Third event: still new bar, rsi = 70.0
-      event3 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.25, new_bar?: true},
-          "rsi" => 70.0
-        }
-      }
-
-      {:ok, result3, state3} = DEMA.next(event3, state2)
-      assert result3.data["dema_rsi"] == 70.0
-
-      # Fourth event: UPDATE on eurusd_m1 (new_bar? = false), rsi = 75.0
-      event4 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.25, new_bar?: false},
-          "rsi" => 75.0
-        }
-      }
-
-      {:ok, result4, _state4} = DEMA.next(event4, state3)
-      # DEMA should be recalculated with [50.0, 60.0, 75.0] instead of [50.0, 60.0, 70.0]
-      assert result4.data["dema_rsi"] == 75.0
+      assert result4.value == 130.0
     end
 
     test "handles nil values from upstream indicators" do
@@ -255,43 +187,42 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
           period: 2,
           data: "indicator",
           name: "dema2",
-          source: :close,
-          bar_name: "eurusd_m1"
+          source: :close
         )
 
       # First value is nil (upstream not ready)
       event1 = %MarketEvent{
         data: %{
-          "indicator" => nil,
+          "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}
         }
       }
 
       {:ok, result1, state1} = DEMA.next(event1, state)
-      assert result1.data["dema2"] == nil
+      assert result1.value == nil
 
       # Second value is valid
       event2 = %MarketEvent{
         data: %{
-          "indicator" => 100.0,
+          "indicator" => %IndicatorValue{value: 100.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.24, new_bar?: true}
         }
       }
 
       {:ok, result2, state2} = DEMA.next(event2, state1)
-      assert result2.data["dema2"] == nil
+      assert result2.value == nil
 
       # Third value is valid
       event3 = %MarketEvent{
         data: %{
-          "indicator" => 110.0,
+          "indicator" => %IndicatorValue{value: 110.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.25, new_bar?: true}
         }
       }
 
       {:ok, result3, state3} = DEMA.next(event3, state2)
       # DEMA with period 2 still warming up
-      assert result3.data["dema2"] == nil or is_float(result3.data["dema2"])
+      assert result3.value == nil or is_float(result3.value)
 
       # Continue adding values until we get output
       remaining_values = [120.0, 130.0, 140.0, 150.0]
@@ -300,7 +231,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
         Enum.reduce(remaining_values, state3, fn val, st ->
           event = %MarketEvent{
             data: %{
-              "indicator" => val,
+              "indicator" => %IndicatorValue{value: val, data_name: "eurusd_m1"},
               "eurusd_m1" => %Bar{close: 1.20 + val / 100, new_bar?: true}
             }
           }
@@ -312,14 +243,14 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
       # Final value should give us output
       event_final = %MarketEvent{
         data: %{
-          "indicator" => 160.0,
+          "indicator" => %IndicatorValue{value: 160.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.26, new_bar?: true}
         }
       }
 
       {:ok, result_final, _state_final} = DEMA.next(event_final, final_result)
-      assert result_final.data["dema2"] != nil
-      assert is_float(result_final.data["dema2"])
+      assert result_final.value != nil
+      assert is_float(result_final.value)
     end
   end
 
@@ -346,7 +277,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
           }
 
           {:ok, result, new_state} = DEMA.next(event, state)
-          dema_value = result.data["dema"]
+          dema_value = result.value
 
           case {dema_value, expected_value} do
             {nil, nil} -> :ok
@@ -378,7 +309,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
             }
 
             {:ok, result, new_state} = DEMA.next(event, st)
-            {new_state, [result.data["dema"] | results]}
+            {new_state, [result.value | results]}
           end)
 
         # Apply multiple UPDATE operations - each replaces the last bar
@@ -388,7 +319,7 @@ defmodule TheoryCraftTA.Overlap.DEMATest do
           }
 
           {:ok, result, new_state} = DEMA.next(event, state)
-          state_dema = result.data["dema"]
+          state_dema = result.value
 
           # Calculate equivalent batch: all previous data + update_value replacing last
           updated_data = List.replace_at(current_data, -1, update_value)

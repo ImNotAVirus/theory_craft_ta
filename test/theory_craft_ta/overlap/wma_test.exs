@@ -2,7 +2,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraft.{Bar, DataSeries, TimeSeries, MarketEvent}
+  alias TheoryCraft.{Bar, DataSeries, IndicatorValue, MarketEvent, TimeSeries}
   alias TheoryCraftTA.Overlap.WMA
 
   doctest TheoryCraftTA.Overlap.WMA
@@ -157,19 +157,6 @@ defmodule TheoryCraftTA.Overlap.WMATest do
 
       assert msg =~ "Invalid period"
     end
-
-    test "accepts optional bar_name parameter" do
-      assert {:ok, state} =
-               WMA.init(
-                 period: 14,
-                 data: "rsi",
-                 name: "wma_rsi",
-                 source: :close,
-                 bar_name: "eurusd_m1"
-               )
-
-      assert state.bar_name == "eurusd_m1"
-    end
   end
 
   ## Streaming API tests (next/2 with MarketEvent)
@@ -184,7 +171,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
       }
 
       {:ok, result1, state1} = WMA.next(event1, state)
-      assert result1.data["wma2"] == nil
+      assert result1.value == nil
 
       # Second bar - should calculate
       event2 = %MarketEvent{
@@ -193,7 +180,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
 
       {:ok, result2, state2} = WMA.next(event2, state1)
       # WMA(2) = (100*1 + 110*2) / (1+2) = 320 / 3 ≈ 106.6667
-      assert_in_delta result2.data["wma2"], 106.6666667, 0.0001
+      assert_in_delta result2.value, 106.6666667, 0.0001
 
       # Third bar
       event3 = %MarketEvent{
@@ -202,7 +189,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
 
       {:ok, result3, _state3} = WMA.next(event3, state2)
       # WMA(2) = (110*1 + 120*2) / (1+2) = 350 / 3 ≈ 116.6667
-      assert_in_delta result3.data["wma2"], 116.6666667, 0.0001
+      assert_in_delta result3.value, 116.6666667, 0.0001
     end
 
     test "processes bars correctly in UPDATE mode" do
@@ -221,7 +208,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
       }
 
       {:ok, result2, state2} = WMA.next(event2, state1)
-      assert_in_delta result2.data["wma2"], 106.6666667, 0.0001
+      assert_in_delta result2.value, 106.6666667, 0.0001
 
       # Update second bar (UPDATE mode - new_bar? = false)
       event3 = %MarketEvent{
@@ -231,48 +218,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
       {:ok, result3, _state3} = WMA.next(event3, state2)
       # WMA should be recalculated with [100.0, 120.0] instead of [100.0, 110.0]
       # WMA(2) = (100*1 + 120*2) / (1+2) = 340 / 3 ≈ 113.3333
-      assert_in_delta result3.data["wma2"], 113.3333333, 0.0001
-    end
-
-    test "uses bar_name parameter to extract new_bar? from different source" do
-      # Calculate WMA on RSI indicator, but use eurusd_m1 for new_bar?
-      {:ok, state} =
-        WMA.init(period: 2, data: "rsi", name: "wma_rsi", source: :close, bar_name: "eurusd_m1")
-
-      # First event: new bar on eurusd_m1, rsi = 50.0
-      event1 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.23, new_bar?: true},
-          "rsi" => 50.0
-        }
-      }
-
-      {:ok, _result1, state1} = WMA.next(event1, state)
-
-      # Second event: still new bar, rsi = 60.0
-      event2 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.24, new_bar?: true},
-          "rsi" => 60.0
-        }
-      }
-
-      {:ok, result2, state2} = WMA.next(event2, state1)
-      # WMA(2) = (50*1 + 60*2) / (1+2) = 170 / 3 ≈ 56.6667
-      assert_in_delta result2.data["wma_rsi"], 56.6666667, 0.0001
-
-      # Third event: UPDATE on eurusd_m1 (new_bar? = false), rsi = 65.0
-      event3 = %MarketEvent{
-        data: %{
-          "eurusd_m1" => %Bar{close: 1.24, new_bar?: false},
-          "rsi" => 65.0
-        }
-      }
-
-      {:ok, result3, _state3} = WMA.next(event3, state2)
-      # WMA should be recalculated with [50.0, 65.0] instead of [50.0, 60.0]
-      # WMA(2) = (50*1 + 65*2) / (1+2) = 180 / 3 = 60.0
-      assert_in_delta result3.data["wma_rsi"], 60.0, 0.0001
+      assert_in_delta result3.value, 113.3333333, 0.0001
     end
 
     test "handles nil values from upstream indicators" do
@@ -281,43 +227,42 @@ defmodule TheoryCraftTA.Overlap.WMATest do
           period: 2,
           data: "indicator",
           name: "wma2",
-          source: :close,
-          bar_name: "eurusd_m1"
+          source: :close
         )
 
       # First value is nil (upstream not ready)
       event1 = %MarketEvent{
         data: %{
-          "indicator" => nil,
+          "indicator" => %IndicatorValue{value: nil, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}
         }
       }
 
       {:ok, result1, state1} = WMA.next(event1, state)
-      assert result1.data["wma2"] == nil
+      assert result1.value == nil
 
       # Second value is valid
       event2 = %MarketEvent{
         data: %{
-          "indicator" => 100.0,
+          "indicator" => %IndicatorValue{value: 100.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.24, new_bar?: true}
         }
       }
 
       {:ok, result2, state2} = WMA.next(event2, state1)
-      assert result2.data["wma2"] == nil
+      assert result2.value == nil
 
       # Third value is valid - should calculate
       event3 = %MarketEvent{
         data: %{
-          "indicator" => 110.0,
+          "indicator" => %IndicatorValue{value: 110.0, data_name: "eurusd_m1"},
           "eurusd_m1" => %Bar{close: 1.25, new_bar?: true}
         }
       }
 
       {:ok, result3, _state3} = WMA.next(event3, state2)
       # WMA(2) = (100*1 + 110*2) / (1+2) = 320 / 3 ≈ 106.6667
-      assert_in_delta result3.data["wma2"], 106.6666667, 0.0001
+      assert_in_delta result3.value, 106.6666667, 0.0001
     end
   end
 
@@ -344,7 +289,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
           }
 
           {:ok, result, new_state} = WMA.next(event, state)
-          wma_value = result.data["wma"]
+          wma_value = result.value
 
           case {wma_value, expected_value} do
             {nil, nil} -> :ok
@@ -376,7 +321,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
             }
 
             {:ok, result, new_state} = WMA.next(event, st)
-            {new_state, [result.data["wma"] | results]}
+            {new_state, [result.value | results]}
           end)
 
         # Apply multiple UPDATE operations - each replaces the last bar
@@ -386,7 +331,7 @@ defmodule TheoryCraftTA.Overlap.WMATest do
           }
 
           {:ok, result, new_state} = WMA.next(event, state)
-          state_wma = result.data["wma"]
+          state_wma = result.value
 
           # Calculate equivalent batch: all previous data + update_value replacing last
           updated_data = List.replace_at(current_data, -1, update_value)
