@@ -2,19 +2,7 @@ defmodule TheoryCraftTA do
   @moduledoc """
   TheoryCraftTA - Technical Analysis indicators for TheoryCraft.
 
-  A wrapper library around TA-Lib providing both Native (Rust NIF) and Pure Elixir
-  implementations of 200+ technical analysis indicators.
-
-  ## Backend Configuration
-
-  TheoryCraftTA supports two backends:
-  - `TheoryCraftTA.Native` - Fast Rust NIF implementation (default)
-  - `TheoryCraftTA.Elixir` - Pure Elixir implementation
-
-  The backend is configured at compile time via application config:
-
-      config :theory_craft_ta,
-        default_backend: TheoryCraftTA.Native
+  Provides Rust NIF implementations of 200+ technical analysis indicators via TA-Lib.
 
   ## Input Types
 
@@ -49,116 +37,57 @@ defmodule TheoryCraftTA do
 
   @type source :: [float() | nil] | DataSeries.t(float() | nil) | TimeSeries.t(float() | nil)
 
-  @backend Application.compile_env(:theory_craft_ta, :default_backend, TheoryCraftTA.Native)
+  ## Batch indicators - Delegates
 
-  ## Overlap Indicators
+  defdelegate sma(data, period), to: TheoryCraftTA.Overlap.SMA
+  defdelegate ema(data, period), to: TheoryCraftTA.Overlap.EMA
+  defdelegate wma(data, period), to: TheoryCraftTA.Overlap.WMA
+  defdelegate dema(data, period), to: TheoryCraftTA.Overlap.DEMA
+  defdelegate tema(data, period), to: TheoryCraftTA.Overlap.TEMA
+  defdelegate trima(data, period), to: TheoryCraftTA.Overlap.TRIMA
+  defdelegate t3(data, period, vfactor), to: TheoryCraftTA.Overlap.T3
+  defdelegate midpoint(data, period), to: TheoryCraftTA.Overlap.MIDPOINT
 
-  @doc """
-  Simple Moving Average.
+  ## Batch indicators - Bang functions
 
-  Calculates the simple moving average of the input data over the specified period.
-
-  ## Parameters
-    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
-    - `period` - Number of periods for the moving average (must be an integer >= 2)
-
-  ## Returns
-    - `{:ok, result}` where result is the same type as input with SMA values
-    - `{:error, reason}` if validation fails or calculation error occurs
-
-  ## Examples
-      iex> TheoryCraftTA.sma([1.0, 2.0, 3.0, 4.0, 5.0], 3)
-      {:ok, [nil, nil, 2.0, 3.0, 4.0]}
-
-  """
-  @spec sma(source(), pos_integer()) :: {:ok, source()} | {:error, String.t()}
-  defdelegate sma(data, period), to: Module.concat(@backend, Overlap)
-
-  @doc """
-  Simple Moving Average - Bang version.
-
-  Same as `sma/2` but raises an exception instead of returning an error tuple.
-
-  ## Parameters
-    - `data` - Input data (list of floats, DataSeries, or TimeSeries)
-    - `period` - Number of periods for the moving average (must be an integer >= 2)
-
-  ## Returns
-    - Result of the same type as input with SMA values
-
-  ## Raises
-    - `RuntimeError` if validation fails or calculation error occurs
-    - `FunctionClauseError` if period is not an integer
-
-  ## Examples
-      iex> TheoryCraftTA.sma!([1.0, 2.0, 3.0, 4.0, 5.0], 3)
-      [nil, nil, 2.0, 3.0, 4.0]
-
-  """
+  @doc "Simple Moving Average. See `sma/2` for details."
   @spec sma!(source(), pos_integer()) :: source()
-  def sma!(data, period) do
-    case sma(data, period) do
+  def sma!(data, period), do: unwrap_batch!(sma(data, period), "SMA")
+
+  @doc "Exponential Moving Average. See `ema/2` for details."
+  @spec ema!(source(), pos_integer()) :: source()
+  def ema!(data, period), do: unwrap_batch!(ema(data, period), "EMA")
+
+  @doc "Weighted Moving Average. See `wma/2` for details."
+  @spec wma!(source(), pos_integer()) :: source()
+  def wma!(data, period), do: unwrap_batch!(wma(data, period), "WMA")
+
+  @doc "Double Exponential Moving Average. See `dema/2` for details."
+  @spec dema!(source(), pos_integer()) :: source()
+  def dema!(data, period), do: unwrap_batch!(dema(data, period), "DEMA")
+
+  @doc "Triple Exponential Moving Average. See `tema/2` for details."
+  @spec tema!(source(), pos_integer()) :: source()
+  def tema!(data, period), do: unwrap_batch!(tema(data, period), "TEMA")
+
+  @doc "Triangular Moving Average. See `trima/2` for details."
+  @spec trima!(source(), pos_integer()) :: source()
+  def trima!(data, period), do: unwrap_batch!(trima(data, period), "TRIMA")
+
+  @doc "T3 (Tillson T3) Moving Average. See `t3/3` for details."
+  @spec t3!(source(), pos_integer(), float()) :: source()
+  def t3!(data, period, vfactor), do: unwrap_batch!(t3(data, period, vfactor), "T3")
+
+  @doc "MidPoint over period. See `midpoint/2` for details."
+  @spec midpoint!(source(), pos_integer()) :: source()
+  def midpoint!(data, period), do: unwrap_batch!(midpoint(data, period), "MIDPOINT")
+
+  ## Private functions
+
+  defp unwrap_batch!(result, indicator_name) do
+    case result do
       {:ok, result} -> result
-      {:error, reason} -> raise "SMA error: #{reason}"
-    end
-  end
-
-  @doc """
-  Incremental SMA calculation.
-
-  When streaming data, this function efficiently calculates the next SMA value
-  without reprocessing the entire dataset.
-
-  ## Behavior
-    - If input size == prev size: Updates last value (same bar, multiple ticks)
-    - If input size == prev size + 1: Adds new value (new bar)
-
-  ## Parameters
-    - `data` - Input data (must have one more element than prev, or same length)
-    - `period` - Number of periods for the moving average (must be an integer >= 2)
-    - `prev` - Previous SMA result
-
-  ## Returns
-    - `{:ok, result}` with updated SMA values
-    - `{:error, reason}` if validation fails
-
-  ## Examples
-      iex> TheoryCraftTA.sma_next([1.0, 2.0, 3.0, 4.0, 5.0], 2, [nil, 1.5, 2.5, 3.5])
-      {:ok, [nil, 1.5, 2.5, 3.5, 4.5]}
-
-      iex> TheoryCraftTA.sma_next([1.0, 2.0, 3.0, 4.0, 5.5], 2, [nil, 1.5, 2.5, 3.5, 4.5])
-      {:ok, [nil, 1.5, 2.5, 3.5, 4.75]}
-
-  """
-  @spec sma_next(source(), pos_integer(), source()) :: {:ok, source()} | {:error, String.t()}
-  defdelegate sma_next(data, period, prev), to: Module.concat(@backend, Overlap)
-
-  @doc """
-  Incremental SMA calculation - Bang version.
-
-  Same as `sma_next/3` but raises an exception instead of returning an error tuple.
-
-  ## Parameters
-    - `data` - Input data (must have one more element than prev, or same length)
-    - `period` - Number of periods for the moving average (must be an integer >= 2)
-    - `prev` - Previous SMA result
-
-  ## Returns
-    - Result with updated SMA values
-
-  ## Raises
-    - `RuntimeError` if validation fails or calculation error occurs
-
-  ## Examples
-      iex> TheoryCraftTA.sma_next!([1.0, 2.0, 3.0, 4.0, 5.0], 2, [nil, 1.5, 2.5, 3.5])
-      [nil, 1.5, 2.5, 3.5, 4.5]
-
-  """
-  @spec sma_next!(source(), pos_integer(), source()) :: source()
-  def sma_next!(data, period, prev) do
-    case sma_next(data, period, prev) do
-      {:ok, result} -> result
-      {:error, reason} -> raise "SMA_next error: #{reason}"
+      {:error, reason} -> raise "#{indicator_name} error: #{reason}"
     end
   end
 end

@@ -13,7 +13,7 @@ defmodule TheoryCraftTA.MixProject do
       deps: deps(),
       aliases: aliases(),
       package: package(),
-      preferred_cli_env: [ci: :test, bench: :prod],
+      preferred_cli_env: [ci: :test, "ci.check": :test, bench: :prod],
       elixirc_paths: elixirc_paths(Mix.env()),
       elixirc_options: [warnings_as_errors: true]
     ]
@@ -35,7 +35,14 @@ defmodule TheoryCraftTA.MixProject do
       "rust.clean": ["cmd cargo clean --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.test": ["cmd cargo test --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.fmt": ["cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml"],
-      ci: ["format", "rust.fmt", "rust.lint", "test"]
+      ci: ["format", "rust.fmt", "rust.lint", "test"],
+      "ci.check": [
+        "format --check-formatted",
+        "cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml --all -- --check",
+        "cmd cargo clippy --manifest-path=native/theory_craft_ta/Cargo.toml -- -Dwarnings",
+        "compile --warnings-as-errors",
+        "test"
+      ]
     ]
   end
 
@@ -74,6 +81,7 @@ defmodule TheoryCraftTA.MixProject do
       ## Dev
       {:tidewave, "~> 0.5", only: :dev},
       {:bandit, "~> 1.0", only: :dev},
+      {:pre_commit, "~> 0.3", only: :dev},
 
       ## Benchmark
       {:benchee, "~> 1.4", only: :bench},
