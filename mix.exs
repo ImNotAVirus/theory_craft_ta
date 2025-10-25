@@ -35,9 +35,10 @@ defmodule TheoryCraftTA.MixProject do
       "rust.clean": ["cmd cargo clean --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.test": ["cmd cargo test --manifest-path=native/theory_craft_ta/Cargo.toml"],
       "rust.fmt": ["cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml"],
-      ci: ["format", "rust.fmt", "rust.lint", "test"],
+      ci: ["format", "credo", "rust.fmt", "rust.lint", "test"],
       "ci.check": [
         "format --check-formatted",
+        "credo",
         "cmd cargo fmt --manifest-path=native/theory_craft_ta/Cargo.toml --all -- --check",
         "cmd cargo clippy --manifest-path=native/theory_craft_ta/Cargo.toml -- -Dwarnings",
         "compile --warnings-as-errors",
@@ -82,6 +83,7 @@ defmodule TheoryCraftTA.MixProject do
       {:tidewave, "~> 0.5", only: :dev},
       {:bandit, "~> 1.0", only: :dev},
       {:pre_commit, "~> 0.3", only: :dev},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
 
       ## Benchmark
       {:benchee, "~> 1.4", only: :bench},

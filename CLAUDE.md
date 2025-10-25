@@ -47,7 +47,21 @@ mix format
 
 # Format specific file
 mix format lib/theory_craft_ta.ex
+
+# Run Credo code analysis
+mix credo
+
+# Get detailed explanation for a specific Credo issue
+mix credo explain lib/theory_craft_ta/overlap/wma.ex:34:24
+
+# Run full CI check (includes tests, compilation, and Credo)
+mix ci
+
+# Run CI check only (no tests, just compilation and Credo)
+mix ci.check
 ```
+
+**Note**: When you complete a feature and run `mix ci`, Credo checks will be performed automatically as part of the CI pipeline.
 
 ### Benchmarking
 ```bash

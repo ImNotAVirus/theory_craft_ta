@@ -32,7 +32,7 @@ defmodule TheoryCraftTA.Overlap.SMA do
 
   alias __MODULE__
   alias TheoryCraft.MarketSource.{IndicatorValue, MarketEvent}
-  alias TheoryCraftTA.{Native, Helpers}
+  alias TheoryCraftTA.{Helpers, Native}
 
   @behaviour TheoryCraft.MarketSource.Indicator
 
