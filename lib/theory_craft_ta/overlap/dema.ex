@@ -30,10 +30,10 @@ defmodule TheoryCraftTA.Overlap.DEMA do
   """
 
   alias __MODULE__
-  alias TheoryCraft.{IndicatorValue, MarketEvent}
+  alias TheoryCraft.MarketSource.{IndicatorValue, MarketEvent}
   alias TheoryCraftTA.{Native, Helpers}
 
-  @behaviour TheoryCraft.Indicator
+  @behaviour TheoryCraft.MarketSource.Indicator
 
   @type t :: %__MODULE__{
           period: pos_integer(),

@@ -5,7 +5,8 @@ defmodule TheoryCraftTA.Helpers do
   # It handles conversions between different input types (list, DataSeries, TimeSeries)
   # and ensures the same type is returned as output.
 
-  alias TheoryCraft.{Bar, DataSeries, TimeSeries}
+  alias TheoryCraft.{DataSeries, TimeSeries}
+  alias TheoryCraft.MarketSource.Bar
 
   ## Public API
 
@@ -160,12 +161,12 @@ defmodule TheoryCraftTA.Helpers do
 
   ## Examples
 
-      iex> alias TheoryCraft.Bar
+      iex> alias TheoryCraft.MarketSource.Bar
       iex> event_data = %{"eurusd_m1" => %Bar{close: 1.23, new_bar?: false}}
       iex> TheoryCraftTA.Helpers.extract_is_new_bar(event_data, "eurusd_m1", nil)
       false
 
-      iex> alias TheoryCraft.Bar
+      iex> alias TheoryCraft.MarketSource.Bar
       iex> event_data = %{"rsi" => 45.0, "eurusd_m1" => %Bar{close: 1.23, new_bar?: true}}
       iex> TheoryCraftTA.Helpers.extract_is_new_bar(event_data, "rsi", "eurusd_m1")
       true

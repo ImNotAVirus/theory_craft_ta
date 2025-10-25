@@ -2,7 +2,8 @@ defmodule TheoryCraftTA.Overlap.WMATest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias TheoryCraft.{Bar, DataSeries, IndicatorValue, MarketEvent, TimeSeries}
+  alias TheoryCraft.{DataSeries, TimeSeries}
+  alias TheoryCraft.MarketSource.{Bar, IndicatorValue, MarketEvent}
   alias TheoryCraftTA.Overlap.WMA
 
   doctest TheoryCraftTA.Overlap.WMA
